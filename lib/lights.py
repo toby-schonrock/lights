@@ -22,7 +22,7 @@ class Panel:
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
-        self.__channel = channel
+        self.channel = channel
         self.reset()
 
     def reset(self):
@@ -35,9 +35,9 @@ class Panel:
 
     def _apply(self, dmx_data: list[int]):
         '''Called when creating dmx packet'''
-        dmx_data[self.__channel - 1] = _clamp255(self.r)
-        dmx_data[self.__channel + 0] = _clamp255(self.g)
-        dmx_data[self.__channel + 1] = _clamp255(self.b)
+        dmx_data[self.channel - 1] = _clamp255(self.r)
+        dmx_data[self.channel + 0] = _clamp255(self.g)
+        dmx_data[self.channel + 1] = _clamp255(self.b)
 
 
 class Overhead:
@@ -50,7 +50,7 @@ class Overhead:
         if not (1 <= channel <= 508):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
-        self.__channel = channel
+        self.channel = channel
         self.brightness = 0
         '''Brightness 0-255'''
         self.strobe = 0
@@ -79,9 +79,9 @@ class Overhead:
 
     def _apply(self, dmx_data: list[int]):
         '''Called when creating dmx packet'''
-        dmx_data[self.__channel - 1] = _clamp255(self.r)
-        dmx_data[self.__channel + 0] = _clamp255(self.g)
-        dmx_data[self.__channel + 1] = _clamp255(self.b)
+        dmx_data[self.channel - 1] = _clamp255(self.r)
+        dmx_data[self.channel + 0] = _clamp255(self.g)
+        dmx_data[self.channel + 1] = _clamp255(self.b)
 
         self.strobe = max(0, min(255, int(self.strobe)))
         self.brightness = max(0, min(255, int(self.brightness)))
@@ -98,7 +98,7 @@ class Overhead:
             if value >= 190:
                 value += 60
 
-        dmx_data[self.__channel + 2] = _clamp255(value)
+        dmx_data[self.channel + 2] = _clamp255(value)
 
 
 class MovingHead:
