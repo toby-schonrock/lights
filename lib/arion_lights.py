@@ -1,11 +1,7 @@
 import atexit
 import threading
 import time
-from typing import Iterator
-
-from .artnetcontroller import ArtNetController
-
-__all__ = ["panels", "overheads", "moving_heads", "reset", "send_dmx"]
+from typing import Callable, Iterator
 
 
 def _clamp255(val: int):
@@ -276,8 +272,6 @@ class _moving_heads:
             m.reset()
 
 
-__controller = ArtNetController(target_ip="192.168.1.169")
-
 panels = _panels()
 overheads = _overheads()
 moving_heads = _moving_heads()
@@ -290,8 +284,10 @@ def reset():
     moving_heads.reset()
 
 
-def send_dmx():
-    """pushes the current state to the controller"""
+def get_channel_values():
+    """
+    Generates the 512 0-225 channel values representing the current state
+    """
     data = [0] * 512
     for panel in panels:
         panel._apply(data)
@@ -302,17 +298,20 @@ def send_dmx():
     for head in moving_heads:
         head._apply(data)
 
-    __controller.buffer = data
-    __controller.flush_buffer()
+    return data
 
 
-def __start_dmx_stream(ms_interval: int = 25):
+def spawn_update_thread(callback: Callable[[list[int]], None], ms_interval: int = 25) -> Callable[[], None]:
+    """
+    Starts a thread which calls the callback with the channel values every ms_interval ms.
+    Returns a callable to kill the thread.
+    """
     def loop():
         interval = ms_interval / 1000.0
         next_frame = time.monotonic()
 
         while not stop_event.is_set():
-            send_dmx()
+            callback(get_channel_values())
 
             next_frame += interval
             delay = next_frame - time.monotonic()
@@ -326,18 +325,8 @@ def __start_dmx_stream(ms_interval: int = 25):
     thread.start()
 
     print(
-        f"State is being transmitted over artnet to the controller every {ms_interval}ms")
+        f"Callback being called with channel values every {ms_interval}ms")
 
-    # Return the trigger to pass directly into your atexit handler
+    # Setup that thread will be closed on exit
+    atexit.register(stop_event.set)
     return stop_event.set
-
-
-__stop_dmx = __start_dmx_stream()
-
-
-def __close():
-    __stop_dmx()
-    __controller.close()
-
-
-atexit.register(__close)

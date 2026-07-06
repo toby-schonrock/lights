@@ -1,20 +1,25 @@
 import time
 
-from lib.lights import moving_heads, overheads, send_dmx, reset
+import lib.arion_lights as light
+import lib.artnetcontroller as anc
 
-for head in moving_heads:
+controller = anc.ArtNetController("192.168.1.169")
+
+for head in light.moving_heads:
     angle_offset = (head.channel - 401) / 14
-    # print(angle_offset)
     head.setDir(29 + angle_offset * 3, 17)
 
+controller.send_packet(light.get_channel_values())
 time.sleep(3)
 
-for head in moving_heads:
+for head in light.moving_heads:
     head.setLight(255, 255, 255, 255, 255, 255)
 
-for head in overheads:
+for head in light.overheads:
     head.setLight(255, 255, 255, 255, 255)
 
+controller.send_packet(light.get_channel_values())
 time.sleep(3)
-reset()
-send_dmx()
+
+light.reset()
+controller.send_packet(light.get_channel_values())

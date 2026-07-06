@@ -1,10 +1,10 @@
 import socket
 import time
 
-"""Low level art net controller"""
-
 
 class ArtNetController:
+    """Low level art net controller"""
+
     ARTNET_PORT = 6454
 
     def __init__(self, target_ip, subnet=0, universe=0, net=0):
@@ -15,9 +15,9 @@ class ArtNetController:
 
         self.sequence_counter = 1
         self.sock = None
-        self.buffer = [0] * 512
 
-        self.__connect()
+        if not self.__connect():
+            raise ConnectionError(f"Failed to connect to {target_ip}")
 
     def _build_art_poll(self):
         """Constructs an ArtPoll packet (OpCode 0x2000), used as "ping" for artnet"""
@@ -108,65 +108,17 @@ class ArtNetController:
             print(f"[ERROR] Network initialization failed: {e}")
             return False
 
-    def flush_buffer(self):
-        packet_bytes = self._build_art_dmx(self.buffer)
+    def send_packet(self, channel_values: list[int]):
+        """
+        Sends the channels values via Artnet to the device.
+        Warning these values are unchecked!!!
+        It is up to you to ensure these are 512 int values between 0-255
+        """
+        packet_bytes = self._build_art_dmx(channel_values)
 
         self.sock.sendto(packet_bytes, (self.target_ip, self.ARTNET_PORT))
 
         self.sequence_counter = 1 if self.sequence_counter >= 255 else self.sequence_counter + 1
-
-    def set_buffer(self, dmx_data, flush: bool = False):
-        """
-        Sets the buffer (an array of up to 512 integers (0-255))
-        Note channel 1 is at position 0
-        If flush is enabled sends the data to the controller
-        """
-        # Ensure data is a list or bytes object
-        dmx_list = list(dmx_data)
-
-        # Enforce exact 512-byte constraint bounds
-        if len(dmx_list) != 512:
-            raise RuntimeError("Dmx buffer should have length 512")
-
-        # Clamp individual channel integer values strictly between 0 and 255
-        dmx_list = [max(0, min(255, int(val))) for val in dmx_list]
-
-        self.buffer = dmx_list
-
-        if flush:
-            self.flush_buffer()
-
-    def set_channel(self, channel: int, value: int, flush: bool = False):
-        """
-        In the buffer sets the channel = value.
-        Note these are DMX channel numbers so 1 - 512 not 0 - 511.
-        If flush is enabled sends the resulting buffer to the controller immediately
-        """
-        if channel < 1 or channel > 512:
-            raise ValueError(f"Invalid rchannel number {channel}")
-
-        self.buffer[channel - 1] = max(0, min(255, int(value)))
-
-        if flush:
-            self.flush_buffer()
-
-    def set_RGB(self, rchannel: int, r: int, g: int, b: int, flush: bool = False):
-        """
-        In the buffer sets the rchannel = r, rchannel + 1 = g and rchannel + 2 = b.
-        Note these are DMX channel numbers so 1 - 512 not 0 - 511.
-        If flush is enabled sends the resulting buffer to the controller immediately
-        """
-        if rchannel < 1 or rchannel > 512 - 2:
-            raise ValueError(f"Invalid rchannel number {rchannel}")
-
-        base_idx = rchannel - 1
-
-        self.buffer[base_idx] = max(0, min(255, int(r)))
-        self.buffer[base_idx + 1] = max(0, min(255, int(g)))
-        self.buffer[base_idx + 2] = max(0, min(255, int(b)))
-
-        if flush:
-            self.flush_buffer()
 
     def close(self):
         """Cleanly releases bound networking interfaces."""
