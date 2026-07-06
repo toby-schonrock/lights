@@ -134,7 +134,7 @@ def live_plot():
         return line, dots
 
     # Create the animation loop (interval=30ms targets ~33 FPS)
-    animation.FuncAnimation(
+    ani = animation.FuncAnimation(
         fig, update, interval=30, blit=False, cache_frame_data=False)
 
     # Keeps the window open and processing events until closed manually
