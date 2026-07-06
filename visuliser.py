@@ -124,7 +124,7 @@ stream = sd.InputStream(device=inputdevind,
                         blocksize=blocksize, channels=channels, callback=callback)
 
 stream.start()
-# live_plot()
+live_plot()
 
 
 controller = anc.ArtNetController("192.168.1.169")
