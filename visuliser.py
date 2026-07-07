@@ -1,6 +1,4 @@
-import os
 import sys
-import threading
 
 import lib.arion_lights as light
 import lib.artnetcontroller as anc
@@ -11,9 +9,6 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-
-# Set pipewire variable to reduce input latency
-# os.environ["PIPEWIRE_LATENCY"] = "256/44100"
 
 import sounddevice as sd  # noqa: E402
 
@@ -139,6 +134,8 @@ def process_audio_data(indata: np.ndarray, frames: int,
 
 # latency = 'low'
 latency = None
+# for somereason default latency 'high' seems to have less latencey
+# perhaps due to less overflows or better syncing with dmx
 
 stream = sd.InputStream(device=inputdevind,
                         blocksize=blocksize, channels=1, latency=latency, callback=process_audio_data)
@@ -195,7 +192,7 @@ def live_plot():
         return line, dots
 
     # Create the animation loop (interval=30ms targets ~33 FPS)
-    ani = animation.FuncAnimation(
+    ani = animation.FuncAnimation(  # noqa:F841
         fig, update, interval=30, blit=False, cache_frame_data=False)
 
     # Keeps the window open and processing events until closed manually
