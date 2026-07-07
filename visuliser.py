@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-import sounddevice as sd  # noqa: E402
+import sounddevice as sd
 
 # ==============================
 # LIGHT STUFF
@@ -54,8 +54,9 @@ def set_lights(visuliser_values: np.ndarray) -> None:
 # ==============================
 # SOUND STUFF
 # ==============================
-inputdev = sd.query_devices("Razer Seiren Mini")  # default device
-if (not inputdev):
+try:
+    inputdev = sd.query_devices("Razer Seiren Mini")  # default device
+except ValueError:
     print(sd.query_devices())
     inp = input("Select a device: ")
     inputdev = sd.query_devices(inp)
@@ -103,7 +104,7 @@ def smoothing(old: np.ndarray, new: np.ndarray) -> np.ndarray:
 
 
 def maxsmoothing(old: np.ndarray, new: np.ndarray) -> np.ndarray:
-    return np.minimum(np.maximum(old, new) * 0.95, max_value_clamp)
+    return np.minimum(np.maximum(old, new) * 0.90, max_value_clamp)
 
 
 def process_audio_data(indata: np.ndarray, frames: int,
@@ -199,6 +200,6 @@ def live_plot():
     plt.show()
 
 
-live_plot()
+# live_plot()
 print("Press enter to close")
 input()
