@@ -16,8 +16,7 @@ class ArtNetController:
         self.sequence_counter = 1
         self.sock = None
 
-        if not self.__connect():
-            raise ConnectionError(f"Failed to connect to {target_ip}")
+        self.__connect()
 
     def _build_art_poll(self):
         """Constructs an ArtPoll packet (OpCode 0x2000), used as "ping" for artnet"""
@@ -65,10 +64,8 @@ class ArtNetController:
         try:
             # Force compliance: Source port must be 6454
             self.sock.bind(("0.0.0.0", self.ARTNET_PORT))
-        except PermissionError:
-            print(
-                f"[ERROR] Port {self.ARTNET_PORT} is locked. Ensure other lighting apps are shut down.")
-            return False
+        except PermissionError as e:
+            raise PermissionError(f"[ERROR] Port {self.ARTNET_PORT} is locked. Ensure other lighting apps are shut down.") from e
 
         self.sock.settimeout(2.0)
         print("Socket setup")
@@ -96,17 +93,12 @@ class ArtNetController:
 
                     # Connection established, strip timeout bounds for stable execution streaming
                     self.sock.settimeout(None)
-                    return True
+                    return
 
-        except socket.timeout:
-            print(
-                "[WARNING] Handshake timed out. No response from hardware application layer.")
-            print("          Defaulting to blind transmission mode...")
-            self.sock.settimeout(None)
-            return True
+        except socket.timeout as e:
+            raise TimeoutError("[WARNING] Handshake timed out. No response from hardware application layer.") from e
         except Exception as e:
-            print(f"[ERROR] Network initialization failed: {e}")
-            return False
+            raise ConnectionError(f"[ERROR] Network initialization failed: {e}") from e
 
     def send_packet(self, channel_values: list[int]):
         """
