@@ -3,7 +3,12 @@ import time
 
 
 class ArtNetController:
-    """Low level art net controller"""
+    """
+    Low level art net controller. 
+    Connects on construction 
+    Use send_packet() to send dmx values. 
+    Dont forget to close when you're done ;)
+    """
 
     ARTNET_PORT = 6454
 
@@ -65,7 +70,8 @@ class ArtNetController:
             # Force compliance: Source port must be 6454
             self.sock.bind(("0.0.0.0", self.ARTNET_PORT))
         except PermissionError as e:
-            raise PermissionError(f"[ERROR] Port {self.ARTNET_PORT} is locked. Ensure other lighting apps are shut down.") from e
+            raise PermissionError(
+                f"[ERROR] Port {self.ARTNET_PORT} is locked. Ensure other lighting apps are shut down.") from e
 
         self.sock.settimeout(2.0)
         print("Socket setup")
@@ -77,7 +83,7 @@ class ArtNetController:
             responseTime = time.time_ns()
             self.sock.sendto(poll_packet, (self.target_ip, self.ARTNET_PORT))
 
-            data, addr = self.sock.recvfrom(1024)
+            data, _ = self.sock.recvfrom(1024)
             responseTime = (time.time_ns() - responseTime) / 1000000
             # ns / 10^6 = ms
             if len(data) >= 10 and data[0:8] == b'Art-Net\x00':
@@ -95,10 +101,12 @@ class ArtNetController:
                     self.sock.settimeout(None)
                     return
 
-        except socket.timeout as e:
-            raise TimeoutError("[WARNING] Handshake timed out. No response from hardware application layer.") from e
+        except TimeoutError as e:
+            raise TimeoutError(
+                "[WARNING] Handshake timed out. No response from hardware application layer.") from e
         except Exception as e:
-            raise ConnectionError(f"[ERROR] Network initialization failed: {e}") from e
+            raise ConnectionError(
+                f"[ERROR] Network initialization failed: {e}") from e
 
     def send_packet(self, channel_values: list[int]):
         """
