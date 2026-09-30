@@ -303,61 +303,65 @@ class _moving_heads:
             m.reset()
 
 
-panels = _panels()
-overheads = _overheads()
-moving_heads = _moving_heads()
-
-
-def reset():
-    '''resets all lights to default state'''
-    panels.reset()
-    overheads.reset()
-    moving_heads.reset()
-
-
-def get_channel_values():
+class lightConfig:
     """
-    Generates the 512 0-225 channel values representing the current state
+    A class to act as an api between lighting and dmx channel values.
+    Set the values of the children as you wish and call get channel values to generate
+    DMX channels.
     """
-    data = [0] * 512
-    for panel in panels:
-        panel._apply(data)
 
-    for overhead in overheads:
-        overhead._apply(data)
+    panels = _panels()
+    overheads = _overheads()
+    moving_heads = _moving_heads()
 
-    for head in moving_heads:
-        head._apply(data)
+    def reset(self):
+        '''resets all lights to default state'''
+        self.panels.reset()
+        self.overheads.reset()
+        self.moving_heads.reset()
 
-    return data
+    def get_channel_values(self):
+        """
+        Generates the 512 0-225 channel values representing the current state
+        """
+        data = [0] * 512
+        for panel in self.panels:
+            panel._apply(data)
 
+        for overhead in self.overheads:
+            overhead._apply(data)
 
-def spawn_update_thread(callback: Callable[[list[int]], None], ms_interval: int = 25) -> Callable[[], None]:
-    """
-    Starts a thread which calls the callback with the channel values every ms_interval ms.
-    Returns a callable to kill the thread.
-    """
-    def loop():
-        interval = ms_interval / 1000.0
-        next_frame = time.monotonic()
+        for head in self.moving_heads:
+            head._apply(data)
 
-        while not stop_event.is_set():
-            callback(get_channel_values())
+        return data
 
-            next_frame += interval
-            delay = next_frame - time.monotonic()
-            if delay > 0:
-                time.sleep(delay)
-            else:
-                next_frame = time.monotonic()  # System lag recovery
+    def spawn_update_thread(self, callback: Callable[[list[int]], None], ms_interval: int = 25) -> Callable[[], None]:
+        """
+        Starts a thread which calls the callback with the channel values every ms_interval ms.
+        Returns a callable to kill the thread.
+        """
+        def loop():
+            interval = ms_interval / 1000.0
+            next_frame = time.monotonic()
 
-    stop_event = threading.Event()
-    thread = threading.Thread(target=loop, daemon=True)
-    thread.start()
+            while not stop_event.is_set():
+                callback(self.get_channel_values())
 
-    print(
-        f"Callback being called with channel values every {ms_interval}ms")
+                next_frame += interval
+                delay = next_frame - time.monotonic()
+                if delay > 0:
+                    time.sleep(delay)
+                else:
+                    next_frame = time.monotonic()  # System lag recovery
 
-    # Setup that thread will be closed on exit
-    atexit.register(stop_event.set)
-    return stop_event.set
+        stop_event = threading.Event()
+        thread = threading.Thread(target=loop, daemon=True)
+        thread.start()
+
+        print(
+            f"Callback being called with channel values every {ms_interval}ms")
+
+        # Setup that thread will be closed on exit
+        atexit.register(stop_event.set)
+        return stop_event.set
