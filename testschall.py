@@ -1,11 +1,12 @@
 import math
 import time
 
-from lib import arion_lights, artnetcontroller
+from lib.arion_lights import LightConfig
+from lib.artnetcontroller import ArtNetController
 
-lights = arion_lights.lightConfig()
-controller = artnetcontroller.ArtNetController("192.168.1.169")
-threadkill = lights.spawn_update_thread(controller.send_packet)
+lights = LightConfig()
+controller = ArtNetController("192.168.1.169")
+threadkill = controller.spawn_update_thread(lights.get_channel_values)
 
 for _ in range(10):
     lights.panels.a.g = 255

@@ -1,7 +1,4 @@
-import atexit
-import threading
-import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
 from typing import NewType
@@ -303,7 +300,7 @@ class _moving_heads:
             m.reset()
 
 
-class lightConfig:
+class LightConfig:
     """
     A class to act as an api between lighting and dmx channel values.
     Set the values of the children as you wish and call get channel values to generate
@@ -335,33 +332,3 @@ class lightConfig:
             head._apply(data)
 
         return data
-
-    def spawn_update_thread(self, callback: Callable[[list[int]], None], ms_interval: int = 25) -> Callable[[], None]:
-        """
-        Starts a thread which calls the callback with the channel values every ms_interval ms.
-        Returns a callable to kill the thread.
-        """
-        def loop():
-            interval = ms_interval / 1000.0
-            next_frame = time.monotonic()
-
-            while not stop_event.is_set():
-                callback(self.get_channel_values())
-
-                next_frame += interval
-                delay = next_frame - time.monotonic()
-                if delay > 0:
-                    time.sleep(delay)
-                else:
-                    next_frame = time.monotonic()  # System lag recovery
-
-        stop_event = threading.Event()
-        thread = threading.Thread(target=loop, daemon=True)
-        thread.start()
-
-        print(
-            f"Callback being called with channel values every {ms_interval}ms")
-
-        # Setup that thread will be closed on exit
-        atexit.register(stop_event.set)
-        return stop_event.set

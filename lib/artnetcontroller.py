@@ -1,5 +1,7 @@
 import socket
+import threading
 import time
+from collections.abc import Callable
 
 
 class ArtNetController:
@@ -119,6 +121,34 @@ class ArtNetController:
         self.sock.sendto(packet_bytes, (self.target_ip, self.ARTNET_PORT))
 
         self.sequence_counter = 1 if self.sequence_counter >= 255 else self.sequence_counter + 1
+
+    def spawn_update_thread(self, callback: Callable[[None], list[int]], ms_interval: int = 25) -> Callable[[], None]:
+        """
+        Starts a thread which calls the callback and sends the returned channel values every ms_interval ms.
+        Returns a callable to kill the thread.
+        """
+        def loop():
+            interval = ms_interval / 1000.0
+            next_frame = time.monotonic()
+
+            while not stop_event.is_set():
+                self.send_packet(callback())
+
+                next_frame += interval
+                delay = next_frame - time.monotonic()
+                if delay > 0:
+                    time.sleep(delay)
+                else:
+                    next_frame = time.monotonic()  # System lag recovery
+
+        stop_event = threading.Event()
+        thread = threading.Thread(target=loop, daemon=True)
+        thread.start()
+
+        print(
+            f"Callback being called with channel values every {ms_interval}ms")
+
+        return stop_event.set
 
     def close(self):
         """Cleanly releases bound networking interfaces."""

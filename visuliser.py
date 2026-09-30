@@ -5,9 +5,8 @@ import sys
 import numpy as np
 import sounddevice as sd
 
-import lib.arion_lights as light
-import lib.artnetcontroller as anc
-from lib.arion_lights import LightMode, LightState
+from lib.arion_lights import LightConfig, LightMode, LightState, Panel
+from lib.artnetcontroller import ArtNetController
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-g', '--graph',
@@ -21,15 +20,17 @@ if args.graph:
 # ==============================
 # LIGHT STUFF
 # ==============================
-controller = anc.ArtNetController("192.168.1.169")
+controller = ArtNetController("192.168.1.169")
+lights = LightConfig()
+
 
 # backdrop lighting
-for head in light.overheads:
+for head in lights.overheads:
     head.setLight(255, 255, 255, LightState(LightMode.BRIGHTNESS, 30))
 
 
 class Group:
-    def __init__(self, freq_range: tuple[float, float], panels: list[light.Panel], scale: float = 1, r: int = 0, g: int = 0, b: int = 0):
+    def __init__(self, freq_range: tuple[float, float], panels: list[Panel], scale: float = 1, r: int = 0, g: int = 0, b: int = 0):
         self.freq_range = freq_range
         self.scale = scale
         self.panels = panels
@@ -39,10 +40,10 @@ class Group:
 
 
 # panels: m is not connected
-groups = [Group((1, 130), [light.panels.d, light.panels.h, light.panels.n, light.panels.m, light.panels.t, light.panels.v], 1, 0, 255, 0),
-          Group((130, 300), [light.panels.b, light.panels.e, light.panels.g, light.panels.f,
-                light.panels.r, light.panels.s], 1.5, 255, 255, 255),
-          Group((300, 5000), [light.panels.a, light.panels.c, light.panels.i, light.panels.o, light.panels.p, light.panels.q, light.panels.u], 2.5, 0, 0, 255)]
+groups = [Group((1, 130), [lights.panels.d, lights.panels.h, lights.panels.n, lights.panels.m, lights.panels.t, lights.panels.v], 1, 0, 255, 0),
+          Group((130, 300), [lights.panels.b, lights.panels.e, lights.panels.g, lights.panels.f,
+                lights.panels.r, lights.panels.s], 1.5, 255, 255, 255),
+          Group((300, 5000), [lights.panels.a, lights.panels.c, lights.panels.i, lights.panels.o, lights.panels.p, lights.panels.q, lights.panels.u], 2.5, 0, 0, 255)]
 
 
 def set_lights(visuliser_values: np.ndarray) -> None:
@@ -54,7 +55,7 @@ def set_lights(visuliser_values: np.ndarray) -> None:
             panel.setLight(grp.r * scale, grp.g *
                            scale, grp.b * scale)
 
-    controller.send_packet(light.get_channel_values())
+    controller.send_packet(lights.get_channel_values())
 
 
 # ==============================
