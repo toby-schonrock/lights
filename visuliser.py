@@ -7,6 +7,7 @@ import sounddevice as sd
 
 import lib.arion_lights as light
 import lib.artnetcontroller as anc
+from lib.arion_lights import LightMode, LightState
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-g', '--graph',
@@ -24,7 +25,7 @@ controller = anc.ArtNetController("192.168.1.169")
 
 # backdrop lighting
 for head in light.overheads:
-    head.setLight(255, 255, 255, 30)
+    head.setLight(255, 255, 255, LightState(LightMode.BRIGHTNESS, 30))
 
 
 class Group:

@@ -1,21 +1,171 @@
 import atexit
 import threading
 import time
-from typing import Callable, Iterator
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from enum import Enum
+from typing import NewType
+
+DmxValue = NewType("DmxValue", int)
 
 
-def _clamp255(val: int):
-    return max(0, min(255, int(val)))
+def _dmx_value(value: int) -> DmxValue:
+    return DmxValue(max(0, min(255, int(value))))
+
+
+class DmxByte:
+    """Descriptor for a value clamped to the DMX range."""
+
+    def __set_name__(self, owner, name: str) -> None:
+        self.storage_name = f"_{name}"
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        return getattr(instance, self.storage_name, DmxValue(0))
+
+    def __set__(self, instance, value: int) -> None:
+        setattr(instance, self.storage_name, _dmx_value(value))
+
+
+class LightMode(Enum):
+    BRIGHTNESS = "brightness"
+    STROBE = "strobe"
+
+
+@dataclass(frozen=True)
+class LightState:
+    mode: LightMode
+    value: DmxValue
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.mode, LightMode):
+            raise TypeError("mode must be a LightMode")
+        object.__setattr__(self, "value", _dmx_value(self.value))
+
+    @classmethod
+    def brightness(cls, value: int) -> "LightState":
+        return cls(LightMode.BRIGHTNESS, _dmx_value(value))
+
+    @classmethod
+    def strobe(cls, value: int) -> "LightState":
+        return cls(LightMode.STROBE, _dmx_value(value))
+
+
+class LightStateField:
+    """Descriptor that accepts only a LightState."""
+
+    def __set_name__(self, owner, name: str) -> None:
+        self.storage_name = f"_{name}"
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        return getattr(instance, self.storage_name, LightState.brightness(255))
+
+    def __set__(self, instance, value: LightState) -> None:
+        if not isinstance(value, LightState):
+            raise TypeError("value must be a LightState")
+        setattr(instance, self.storage_name, value)
 
 
 class Panel:
     """
-    3 Channel Panel. 
-    All properties are 0-255.
+    3 Channel (RGB) Panel.
     """
+
+    r = DmxByte()
+    g = DmxByte()
+    b = DmxByte()
 
     def __init__(self, channel: int):
         if not (1 <= channel <= 509):
+            raise ValueError("DMX starting channel must be between 1 and 512.")
+
+        self.channel = channel
+
+    def reset(self):
+        self.setLight(0, 0, 0)
+
+    def setLight(self, r: int, g: int, b: int):
+        self.r = r
+        self.g = g
+        self.b = b
+
+    def _apply(self, dmx_data: list[int]):
+        '''Called when creating dmx packet'''
+        dmx_data[self.channel - 1] = self.r
+        dmx_data[self.channel + 0] = self.g
+        dmx_data[self.channel + 1] = self.b
+
+
+class Overhead:
+    """
+    4 Channel Overhead lamp. 
+    """
+
+    r = DmxByte()
+    g = DmxByte()
+    b = DmxByte()
+    brightness_strobe = LightStateField()
+
+    def __init__(self, channel: int):
+        if not (1 <= channel <= 509):
+            raise ValueError("DMX starting channel must be between 1 and 509.")
+
+        self.channel = channel
+
+    def reset(self):
+        self.setLight(0, 0, 0)
+
+    def setLight(self, r: int, g: int, b: int, brightness_strobe: LightState = None):
+        if brightness_strobe is None:  # defualt value
+            brightness_strobe = LightState.brightness(255)
+
+        self.r = r
+        self.g = g
+        self.b = b
+        self.brightness_strobe = brightness_strobe
+
+    def _apply(self, dmx_data: list[int]):
+        '''Called when creating dmx packet'''
+        dmx_data[self.channel - 1] = self.r
+        dmx_data[self.channel + 0] = self.g
+        dmx_data[self.channel + 1] = self.b
+
+        value = 0
+        if self.brightness_strobe.mode is LightMode.STROBE:
+            # strobe values 190 to 250 incl.
+            value = 190 + round(self.brightness_strobe.value * 60 / 255)
+        else:
+            # project brightness onto rest of range
+            value = round(self.brightness_strobe.value * 194 / 255)
+            if value >= 190:
+                value += 61
+
+        dmx_data[self.channel + 2] = value
+
+
+class MovingHead:
+    """
+    Moving head in 9 channel mode.
+    """
+
+    r = DmxByte()
+    g = DmxByte()
+    b = DmxByte()
+    w = DmxByte()
+    pan = DmxByte()
+    '''
+        0 = left
+        255 = right (1.5 rotations)
+    '''
+    tilt = DmxByte()
+    speed = DmxByte()
+    brightness_strobe = LightStateField()
+
+    def __init__(self, channel: int):
+        if not (1 <= channel <= 503):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
         self.channel = channel
@@ -23,163 +173,44 @@ class Panel:
 
     def reset(self):
         self.setLight(0, 0, 0)
-
-    def setLight(self, r: int, g: int, b: int):
-        self.r = _clamp255(r)
-        self.g = _clamp255(g)
-        self.b = _clamp255(b)
-
-    def _apply(self, dmx_data: list[int]):
-        '''Called when creating dmx packet'''
-        dmx_data[self.channel - 1] = _clamp255(self.r)
-        dmx_data[self.channel + 0] = _clamp255(self.g)
-        dmx_data[self.channel + 1] = _clamp255(self.b)
-
-
-class Overhead:
-    """
-    4 Channel Overhead lamp. 
-    All properties are 0-255.
-    """
-
-    def __init__(self, channel: int):
-        if not (1 <= channel <= 508):
-            raise ValueError("DMX starting channel must be between 1 and 512.")
-
-        self.channel = channel
-        self.brightness = 0
-        '''Brightness 0-255'''
-        self.strobe = 0
-        '''
-        More = faster, 0 disabled, 255 max.\n
-        If enabled brightness ignored
-        '''
-        self.reset()
-
-    def reset(self):
-        self.setLight(0, 0, 0, 0)
-
-    def setLight(self, r: int, g: int, b: int, brightness: int = 255, strobe: int = 0):
-        """
-        Sets r,g,b, brigthness and strobe 0-255.
-        If strobe is set to anything other than 0 brightness will be set to 255
-        """
-        self.r = _clamp255(r)
-        self.g = _clamp255(g)
-        self.b = _clamp255(b)
-        if strobe:
-            brightness = 255
-
-        self.brightness = _clamp255(brightness)
-        self.strobe = _clamp255(strobe)
-
-    def _apply(self, dmx_data: list[int]):
-        '''Called when creating dmx packet'''
-        dmx_data[self.channel - 1] = _clamp255(self.r)
-        dmx_data[self.channel + 0] = _clamp255(self.g)
-        dmx_data[self.channel + 1] = _clamp255(self.b)
-
-        self.strobe = max(0, min(255, int(self.strobe)))
-        self.brightness = max(0, min(255, int(self.brightness)))
-
-        value = 0
-        if self.strobe > 0:
-            self.brightness = 255  # should be anyway
-            # strobe values 190 to 250 incl.
-            value = round(self.strobe * 60 / 255)
-            value = 190 + value
-        else:
-            # project brightness onto rest of range
-            value = round(self.brightness * 195 / 255)
-            if value >= 190:
-                value += 60
-
-        dmx_data[self.channel + 2] = _clamp255(value)
-
-
-class MovingHead:
-    """
-    Moving head in 9 channel mode. 
-    All properties are 0-255.
-    """
-
-    def __init__(self, channel: int):
-        if not (1 <= channel <= 503):
-            raise ValueError("DMX starting channel must be between 1 and 512.")
-
-        self.channel = channel
-
-        self.brightness = 0
-        '''Brightness 0-255'''
-
-        self.strobe = 0
-        '''
-        More = faster, 0 disabled, 255 max.\n
-        If enabled brightness ignored
-        '''
-
-        self.pan = 0
-        '''
-        255 = 1.5 rotations
-        0 = left
-        '''
-
-        self.speed = 0
-        '''0 slow, 255 fast'''
-
-        self.reset()
-
-    def reset(self):
-        self.setLight(0, 0, 0, 0, 0)
         self.setDir(42, 15)
         self.speed = 150
 
-    def setLight(self, r: int, g: int, b: int, w: int = 0, brightness: int = 255, strobe: int = 0):
-        """
-        Sets r,g,b,w, brigthness and strobe 0-255.
-        If strobe is set to anything other than 0 brightness will be set to 255
-        """
-        self.r = _clamp255(r)
-        self.g = _clamp255(g)
-        self.b = _clamp255(b)
-        self.w = _clamp255(w)
-        if strobe:
-            brightness = 255
+    def setLight(self, r: int, g: int, b: int, w: int = 0, brightness_strobe: LightState = None):
+        if brightness_strobe is None:  # defualt value
+            brightness_strobe = LightState.brightness(255)
 
-        self.brightness = _clamp255(brightness)
-        self.strobe = _clamp255(strobe)
+        self.r = r
+        self.g = g
+        self.b = b
+        self.w = w
+        self.brightness_strobe = brightness_strobe
 
     def setDir(self, pan: int, tilt: int):
-        self.pan = _clamp255(pan)
-        self.tilt = _clamp255(tilt)
+        self.pan = pan
+        self.tilt = tilt
 
     def _apply(self, dmx_data: list[int]):
         '''Called when creating dmx packet'''
-        dmx_data[self.channel - 1] = _clamp255(self.pan)
-        dmx_data[self.channel + 0] = _clamp255(self.tilt)
+        dmx_data[self.channel - 1] = self.pan
+        dmx_data[self.channel + 0] = self.tilt
 
-        # brightness/strobe
-        self.strobe = max(0, min(255, int(self.strobe)))
-        self.brightness = max(0, min(255, int(self.brightness)))
-
-        ch3val = 0
-        if self.strobe > 0:
-            self.brightness = 255  # should be anyway
+        value = 0
+        if self.brightness_strobe.mode is LightMode.STROBE:
             # strobe values 135 - 239 incl.
-            ch3val = 135 + round(self.strobe * 104 / 255)
+            value = 135 + round(self.brightness_strobe.value * 104 / 255)
         else:
             # project brightness onto range 8 - 134 incl.
-            ch3val = 8 + round(self.brightness * 126 / 255)
+            value = 8 + round(self.brightness_strobe.value * 126 / 255)
 
-        dmx_data[self.channel + 1] = _clamp255(ch3val)
-
-        dmx_data[self.channel + 2] = _clamp255(self.r)
-        dmx_data[self.channel + 3] = _clamp255(self.g)
-        dmx_data[self.channel + 4] = _clamp255(self.b)
-        dmx_data[self.channel + 5] = _clamp255(self.w)
+        dmx_data[self.channel + 1] = value
+        dmx_data[self.channel + 2] = self.r
+        dmx_data[self.channel + 3] = self.g
+        dmx_data[self.channel + 4] = self.b
+        dmx_data[self.channel + 5] = self.w
 
         # speed is inverted
-        dmx_data[self.channel + 6] = 255 - _clamp255(self.speed)
+        dmx_data[self.channel + 6] = 255 - self.speed
 
 
 class _panels:
