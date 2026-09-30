@@ -1,16 +1,21 @@
+import argparse
+import itertools
 import sys
+
+import numpy as np
+import sounddevice as sd
 
 import lib.arion_lights as light
 import lib.artnetcontroller as anc
 
-import itertools
+parser = argparse.ArgumentParser()
+parser.add_argument('-g', '--graph',
+                    action='store_true', help="enables matplotlib graph display of visuliser bins")
+args = parser.parse_args()
 
-import numpy as np
-
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-
-import sounddevice as sd
+if args.graph:
+    import matplotlib.pyplot as plt
+    from matplotlib import animation
 
 # ==============================
 # LIGHT STUFF
@@ -119,10 +124,9 @@ def process_audio_data(indata: np.ndarray, frames: int,
     """
     global visuliser_values, fft_values
 
-    if status:
-        if str(status) == "input overflow":
-            print("Input overflow. Could be cause by low latency selected",
-                  file=sys.stderr)
+    if status and str(status) == "input overflow":
+        print("Input overflow. Could be cause by low latency selected",
+              file=sys.stderr)
 
     channel_1 = indata[:, 0]
     # performs fourier transform resulting buckets are frequencey_values
@@ -150,60 +154,63 @@ stream.start()
 # ==============================
 # PLOTTING STUFF
 # ==============================
-def live_plot():
-    # Set up the figure and axis
-    fig, ax = plt.subplots(figsize=(10, 5))
+if args.graph:
+    def live_plot():
+        # Set up the figure and axis
+        fig, ax = plt.subplots(figsize=(10, 5))
 
-    # 1. Plot the 257 FFT buckets against the frequency values
-    line, = ax.plot(frequcey_values, np.zeros_like(frequcey_values),
-                    color='b', alpha=0.6, label='FFT Spectrum (Scaled)')
+        # 1. Plot the 257 FFT buckets against the frequency values
+        line, = ax.plot(frequcey_values, np.zeros_like(frequcey_values),
+                        color='b', alpha=0.6, label='FFT Spectrum (Scaled)')
 
-    bound_frequencies = frequcey_values[list(itertools.chain(*range_indicies))]
-    for bound in bound_frequencies:
-        ax.axvline(x=bound, color='gray', linestyle='--', alpha=0.7,
-                   label='Group Bound' if bound == bound_frequencies[0] else "")
+        bound_frequencies = frequcey_values[list(
+            itertools.chain(*range_indicies))]
+        for bound in bound_frequencies:
+            ax.axvline(x=bound, color='gray', linestyle='--', alpha=0.7,
+                       label='Group Bound' if bound == bound_frequencies[0] else "")
 
-    # 3. Calculate the center frequency (arithmetic middle) of each group for the dots
-    middle_frequencies = [
-        (frequcey_values[start] + frequcey_values[end - 1]) / 2
-        for start, end in range_indicies
-    ]
+        # 3. Calculate the center frequency (arithmetic middle) of each group for the dots
+        middle_frequencies = [
+            (frequcey_values[start] + frequcey_values[end - 1]) / 2
+            for start, end in range_indicies
+        ]
 
-    # Initialize the scatter dots representing the calculated value for each group
-    dots = ax.scatter(middle_frequencies, np.zeros(
-        len(groups)), color='red', s=60, zorder=5, label='Group Average (Smoothed)')
+        # Initialize the scatter dots representing the calculated value for each group
+        dots = ax.scatter(middle_frequencies, np.zeros(
+            len(groups)), color='red', s=60, zorder=5, label='Group Average (Smoothed)')
 
-    # Aesthetics and limits
-    ax.set_xlabel('Frequency (Hz)')
-    ax.set_ylabel('Amplitude')
-    ax.set_title('Live Audio FFT Spectrum & Frequency Groups')
-    # Focus view on your active range up to 16kHz
-    ax.set_xlim(min(bound_frequencies) * 0.95, max(bound_frequencies) * 1.05)
-    ax.set_xscale('log')
-    ax.set_ylim(0, 2)  # Initial y-limit
-    ax.set_autoscaley_on(False)
-    ax.legend(loc='upper right')
-    ax.grid(True, alpha=0.3)
+        # Aesthetics and limits
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Amplitude')
+        ax.set_title('Live Audio FFT Spectrum & Frequency Groups')
+        # Focus view on your active range up to 16kHz
+        ax.set_xlim(min(bound_frequencies) * 0.95,
+                    max(bound_frequencies) * 1.05)
+        ax.set_xscale('log')
+        ax.set_ylim(0, 2)  # Initial y-limit
+        ax.set_autoscaley_on(False)
+        ax.legend(loc='upper right')
+        ax.grid(True, alpha=0.3)
 
-    # Animation update loop called periodically by FuncAnimation
-    def update(frame):
-        # Update the main FFT line data
-        line.set_ydata(fft_values)
+        # Animation update loop called periodically by FuncAnimation
+        def update(frame):
+            # Update the main FFT line data
+            line.set_ydata(fft_values)
 
-        # Update the y-coordinates of the 4 group dots
-        dots.set_offsets(np.column_stack(
-            (middle_frequencies, visuliser_values)))
+            # Update the y-coordinates of the 4 group dots
+            dots.set_offsets(np.column_stack(
+                (middle_frequencies, visuliser_values)))
 
-        return line, dots
+            return line, dots
 
-    # Create the animation loop (interval=30ms targets ~33 FPS)
-    ani = animation.FuncAnimation(  # noqa:F841
-        fig, update, interval=30, blit=False, cache_frame_data=False)
+        # Create the animation loop (interval=30ms targets ~33 FPS)
+        ani = animation.FuncAnimation(  # noqa:F841
+            fig, update, interval=30, blit=False, cache_frame_data=False)
 
-    # Keeps the window open and processing events until closed manually
-    plt.show()
+        # Keeps the window open and processing events until closed manually
+        plt.show()
 
+    live_plot()
 
-# live_plot()
 print("Press enter to close")
 input()
