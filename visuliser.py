@@ -59,7 +59,11 @@ try:
 except ValueError:
     print(sd.query_devices())
     inp = input("Select a device: ")
-    inputdev = sd.query_devices(inp)
+    try:
+        inputdev = sd.query_devices(inp)
+    except ValueError:
+        inputdev = sd.query_devices(int(inp))
+
 
 inputdevind = inputdev['index']
 samplingrate = inputdev['default_samplerate']
