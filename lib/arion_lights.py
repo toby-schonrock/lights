@@ -71,15 +71,14 @@ class Panel:
     3 Channel (RGB) Panel.
     """
 
-    r = DmxByte()
-    g = DmxByte()
-    b = DmxByte()
-
     def __init__(self, channel: int):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
         self.channel = channel
+        self.r = DmxByte()
+        self.g = DmxByte()
+        self.b = DmxByte()
 
     def reset(self):
         self.setLight(0, 0, 0)
@@ -101,16 +100,15 @@ class Overhead:
     4 Channel Overhead lamp. 
     """
 
-    r = DmxByte()
-    g = DmxByte()
-    b = DmxByte()
-    brightness_strobe = LightStateField()
-
     def __init__(self, channel: int):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 509.")
 
         self.channel = channel
+        self.r = DmxByte()
+        self.g = DmxByte()
+        self.b = DmxByte()
+        self.brightness_strobe = LightStateField()
 
     def reset(self):
         self.setLight(0, 0, 0)
@@ -148,24 +146,23 @@ class MovingHead:
     Moving head in 9 channel mode.
     """
 
-    r = DmxByte()
-    g = DmxByte()
-    b = DmxByte()
-    w = DmxByte()
-    pan = DmxByte()
-    '''
-        0 = left
-        255 = right (1.5 rotations)
-    '''
-    tilt = DmxByte()
-    speed = DmxByte()
-    brightness_strobe = LightStateField()
-
     def __init__(self, channel: int):
         if not (1 <= channel <= 503):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
         self.channel = channel
+        self.r = DmxByte()
+        self.g = DmxByte()
+        self.b = DmxByte()
+        self.w = DmxByte()
+        self.pan = DmxByte()
+        '''
+            0 = left
+            255 = right (1.5 rotations)
+        '''
+        self.tilt = DmxByte()
+        self.speed = DmxByte()
+        self.brightness_strobe = LightStateField()
         self.reset()
 
     def reset(self):
@@ -211,27 +208,28 @@ class MovingHead:
 
 
 class _panels:
-    a = Panel(129)
-    b = Panel(132)
-    c = Panel(135)
-    d = Panel(138)
-    e = Panel(141)
-    f = Panel(144)
-    g = Panel(147)
-    h = Panel(150)
-    i = Panel(153)
-    m = Panel(156)
-    n = Panel(159)
-    o = Panel(162)
-    p = Panel(165)
-    q = Panel(168)
-    r = Panel(171)
-    s = Panel(174)
-    t = Panel(177)
-    u = Panel(180)
-    v = Panel(183)
+    def __init__(self):
+        self.a = Panel(129)
+        self.b = Panel(132)
+        self.c = Panel(135)
+        self.d = Panel(138)
+        self.e = Panel(141)
+        self.f = Panel(144)
+        self.g = Panel(147)
+        self.h = Panel(150)
+        self.i = Panel(153)
+        self.m = Panel(156)
+        self.n = Panel(159)
+        self.o = Panel(162)
+        self.p = Panel(165)
+        self.q = Panel(168)
+        self.r = Panel(171)
+        self.s = Panel(174)
+        self.t = Panel(177)
+        self.u = Panel(180)
+        self.v = Panel(183)
 
-    _ordered = [a, b, c, d, e, f, g, h, i, m, n, o, p, q, r, s, t, u, v]
+        self._ordered = [self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h, self.i, self.m, self.n, self.o, self.p, self.q, self.r, self.s, self.t, self.u, self.v]
 
     def __iter__(self) -> Iterator[Panel]:
         return iter(self._ordered)
@@ -248,12 +246,13 @@ class _panels:
 
 
 class _overheads:
-    far_right = Overhead(1)
-    mid_right = Overhead(17)
-    mid_left = Overhead(33)
-    far_left = Overhead(49)
+    def __init__(self):
+        self.far_right = Overhead(1)
+        self.mid_right = Overhead(17)
+        self.mid_left = Overhead(33)
+        self.far_left = Overhead(49)
 
-    _ordered = [far_right, mid_right, mid_left, far_left]
+        self._ordered = [self.far_right, self.mid_right, self.mid_left, self.far_left]
 
     def __iter__(self) -> Iterator[Overhead]:
         return iter(self._ordered)
@@ -270,21 +269,22 @@ class _overheads:
 
 
 class _moving_heads:
-    far_right = MovingHead(401)
-    mid_right = MovingHead(415)
-    close_right = MovingHead(429)
-    close_left = MovingHead(443)
-    mid_left = MovingHead(457)
-    far_left = MovingHead(471)
+    def __init__(self):
+        self.far_right = MovingHead(401)
+        self.mid_right = MovingHead(415)
+        self.close_right = MovingHead(429)
+        self.close_left = MovingHead(443)
+        self.mid_left = MovingHead(457)
+        self.far_left = MovingHead(471)
 
-    _ordered = [
-        far_right,
-        mid_right,
-        close_right,
-        close_left,
-        mid_left,
-        far_left,
-    ]
+        self._ordered = [
+            self.far_right,
+            self.mid_right,
+            self.close_right,
+            self.close_left,
+            self.mid_left,
+            self.far_left,
+        ]
 
     def __iter__(self) -> Iterator[MovingHead]:
         return iter(self._ordered)
@@ -307,9 +307,10 @@ class LightConfig:
     DMX channels.
     """
 
-    panels = _panels()
-    overheads = _overheads()
-    moving_heads = _moving_heads()
+    def __init__(self):
+        self.panels = _panels()
+        self.overheads = _overheads()
+        self.moving_heads = _moving_heads()
 
     def reset(self):
         '''resets all lights to default state'''
