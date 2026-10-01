@@ -100,6 +100,8 @@ class Overhead:
     4 Channel Overhead lamp. 
     """
 
+    brightness_strobe = LightStateField()
+
     def __init__(self, channel: int):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 509.")
@@ -108,7 +110,6 @@ class Overhead:
         self.r = DmxByte()
         self.g = DmxByte()
         self.b = DmxByte()
-        self.brightness_strobe = LightStateField()
 
     def reset(self):
         self.setLight(0, 0, 0)
@@ -129,12 +130,13 @@ class Overhead:
         dmx_data[self.channel + 1] = self.b
 
         value = 0
-        if self.brightness_strobe.mode is LightMode.STROBE:
+        bs = self.brightness_strobe
+        if bs.mode is LightMode.STROBE:
             # strobe values 190 to 250 incl.
-            value = 190 + round(self.brightness_strobe.value * 60 / 255)
+            value = 190 + round(bs.value * 60 / 255)
         else:
             # project brightness onto rest of range
-            value = round(self.brightness_strobe.value * 194 / 255)
+            value = round(bs.value * 194 / 255)
             if value >= 190:
                 value += 61
 
@@ -145,6 +147,8 @@ class MovingHead:
     """
     Moving head in 9 channel mode.
     """
+
+    brightness_strobe = LightStateField()
 
     def __init__(self, channel: int):
         if not (1 <= channel <= 503):
@@ -162,7 +166,6 @@ class MovingHead:
         '''
         self.tilt = DmxByte()
         self.speed = DmxByte()
-        self.brightness_strobe = LightStateField()
         self.reset()
 
     def reset(self):
@@ -190,12 +193,13 @@ class MovingHead:
         dmx_data[self.channel + 0] = self.tilt
 
         value = 0
-        if self.brightness_strobe.mode is LightMode.STROBE:
+        bs = self.brightness_strobe
+        if bs.mode is LightMode.STROBE:
             # strobe values 135 - 239 incl.
-            value = 135 + round(self.brightness_strobe.value * 104 / 255)
+            value = 135 + round(bs.value * 104 / 255)
         else:
             # project brightness onto range 8 - 134 incl.
-            value = 8 + round(self.brightness_strobe.value * 126 / 255)
+            value = 8 + round(bs.value * 126 / 255)
 
         dmx_data[self.channel + 1] = value
         dmx_data[self.channel + 2] = self.r
