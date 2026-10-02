@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+import sys
 import threading
 import time
 from typing import Union
+from copy import deepcopy
 
 import numpy as np
 from lib.arion_lights import LightConfig
+import lib.audio as audio
 
 class SceneScript(ABC):
     """
@@ -84,7 +87,7 @@ class Scene:
 
     def _render(self):
         """Renders the current light values without starting any threads."""
-        current_lights = self.bg.lights
+        current_lights = deepcopy(self.bg.lights)
 
         for overlay in self.overlays:
             current_lights = overlay.apply(current_lights)
@@ -105,12 +108,21 @@ class AudioScene(Scene):
         self.audio_data = np.zeros(1024)
 
     def _start_dispatcher(self):
-        # todo setup sound device input stream and set self.audio_data in the callback before calling render
-        pass
+        def handle_audio_data(indata: np.ndarray, frames: int, time, status):
+            if status and str(status) == "input overflow":
+                print("Input overflow. Could be caused by low latency selected",
+                        file=sys.stderr)
+                    
+            self.audio_data = indata[:, 0]
+            lights = self._render(self.audio_data)
+
+            self.callback(lights)
+
+        self._stop_dispatcher = audio.bind(handle_audio_data)
 
     def _render(self, audio_data: np.ndarray):
         """Renders the current light values without starting any threads."""
-        current_lights = self.bg.lights
+        current_lights = deepcopy(self.bg.lights)
 
         for overlay in self.overlays:
             if isinstance(overlay, AudioOverlay):
