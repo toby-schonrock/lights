@@ -104,7 +104,8 @@ class Scene:
             try:
                 self.script.run()
             except SystemExit:
-                print("Background scene was forcibly terminated.")
+                # print("Background scene was forcibly terminated.")
+                pass
             finally:
                 self.stop()
 
