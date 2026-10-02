@@ -64,8 +64,8 @@ class AudioOverlay(ABC):
         pass
 
 class Scene:
-    def __init__(self, bg: SceneScript, overlays: list[Overlay], callback: Callable[[LightConfig], None], ms_interval: float = 25):
-        self.bg = bg
+    def __init__(self, script: SceneScript, overlays: list[Overlay], callback: Callable[[LightConfig], None], ms_interval: float = 25):
+        self.script = script
         self.overlays = overlays or []
         self.ms_interval = ms_interval
         self.callback = callback
@@ -102,7 +102,7 @@ class Scene:
         
         def run_user_script():
             try:
-                self.bg.run()
+                self.script.run()
             except SystemExit:
                 print("Background scene was forcibly terminated.")
             finally:
@@ -116,7 +116,7 @@ class Scene:
 
     def _render(self):
         """Renders the current light values without starting any threads."""
-        current_lights = deepcopy(self.bg.lights)
+        current_lights = deepcopy(self.script.lights)
 
         for overlay in self.overlays:
             current_lights = overlay.apply(current_lights)
@@ -152,7 +152,7 @@ class AudioScene(Scene):
 
     def _render(self, audio_data: np.ndarray):
         """Renders the current light values without starting any threads."""
-        current_lights = deepcopy(self.bg.lights)
+        current_lights = deepcopy(self.script.lights)
 
         for overlay in self.overlays:
             if isinstance(overlay, AudioOverlay):
