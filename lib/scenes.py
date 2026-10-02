@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+import ctypes
 import sys
 import threading
 import time
@@ -9,6 +10,32 @@ from copy import deepcopy
 import numpy as np
 from lib.arion_lights import LightConfig
 import lib.audio as audio
+
+def _force_kill_thread(thread: threading.Thread):
+    """
+    Forcibly injects a SystemExit exception into a thread to kill it immediately.
+    This function is hella bad practice but it is used to allow users to write scene scripts that can be stopped
+    without requiring them to implement their own stop logic.
+    """
+    if not thread or not thread.is_alive():
+        return
+    
+    thread_id = thread.ident
+    if thread_id is None:
+        return
+
+    # Call CPython's internal API to raise SystemExit in the target thread
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        ctypes.c_ulong(thread_id), 
+        ctypes.py_object(SystemExit)
+    )
+    
+    if res == 0:
+        print("Error: Invalid thread ID.")
+    elif res > 1:
+        # If it affected more than one thread (which shouldn't happen), revert it
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(thread_id), None)
+        print("Error: Failed to safely abort thread cleanly, reverted.")
 
 class SceneScript(ABC):
     """
@@ -43,7 +70,6 @@ class Scene:
         self.ms_interval = ms_interval
         self.callback = callback
 
-        self._stop_bg_thread = None
         self._stop_dispatcher = None
 
     def _start_dispatcher(self):
@@ -65,9 +91,9 @@ class Scene:
                 else:
                     next_frame = time.monotonic()  # System lag recovery
 
-        self._dispatcher = threading.Thread(target=dispatcher_loop, daemon=True)
+        self._dispatcher_thread = threading.Thread(target=dispatcher_loop, daemon=True)
         self._stop_dispatcher = dp_stop_event.set
-        self._dispatcher.start()
+        self._dispatcher_thread.start()
 
 
     def start(self):
@@ -75,12 +101,15 @@ class Scene:
         bg_stop_event = threading.Event()
         
         def run_user_script():
-            while not bg_stop_event.is_set():
+            try:
                 self.bg.run()
+            except SystemExit:
+                print("Background scene was forcibly terminated.")
+            finally:
+                self.stop()
 
-        self._bg_thread = threading.Thread(target=run_user_script, daemon=True)
-        self._stop_bg_thread = bg_stop_event.set
-        self._bg_thread.start()
+        self._script_thread = threading.Thread(target=run_user_script, daemon=True)
+        self._script_thread.start()
 
         self._start_dispatcher()
 
@@ -95,11 +124,12 @@ class Scene:
         return current_lights
 
     def stop(self):
-        """Gracefully halts both background execution and network sending."""
-        if self._stop_bg_thread:
-            self._stop_bg_thread()
+        """Gracefully halts dispatcher, and kills the script."""
         if self._stop_dispatcher:
             self._stop_dispatcher()
+
+        if self._script_thread and self._script_thread.is_alive():
+            _force_kill_thread(self._script_thread)
         print("Scene stopped.")
 
 class AudioScene(Scene):
