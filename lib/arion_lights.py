@@ -71,14 +71,15 @@ class Panel:
     3 Channel (RGB) Panel.
     """
 
+    r = DmxByte()
+    g = DmxByte()
+    b = DmxByte()
+
     def __init__(self, channel: int):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
         self.channel = channel
-        self.r = DmxByte()
-        self.g = DmxByte()
-        self.b = DmxByte()
 
     def reset(self):
         self.setLight(0, 0, 0)
@@ -100,6 +101,9 @@ class Overhead:
     4 Channel Overhead lamp. 
     """
 
+    r = DmxByte()
+    g = DmxByte()
+    b = DmxByte()
     brightness_strobe = LightStateField()
 
     def __init__(self, channel: int):
@@ -107,9 +111,6 @@ class Overhead:
             raise ValueError("DMX starting channel must be between 1 and 509.")
 
         self.channel = channel
-        self.r = DmxByte()
-        self.g = DmxByte()
-        self.b = DmxByte()
 
     def reset(self):
         self.setLight(0, 0, 0)
@@ -148,24 +149,24 @@ class MovingHead:
     Moving head in 9 channel mode.
     """
 
+    r = DmxByte()
+    g = DmxByte()
+    b = DmxByte()
+    w = DmxByte()
     brightness_strobe = LightStateField()
+    pan = DmxByte()
+    '''
+        0 = left
+        255 = right (1.5 rotations)
+    '''
+    tilt = DmxByte()
+    speed = DmxByte()
 
     def __init__(self, channel: int):
         if not (1 <= channel <= 503):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
         self.channel = channel
-        self.r = DmxByte()
-        self.g = DmxByte()
-        self.b = DmxByte()
-        self.w = DmxByte()
-        self.pan = DmxByte()
-        '''
-            0 = left
-            255 = right (1.5 rotations)
-        '''
-        self.tilt = DmxByte()
-        self.speed = DmxByte()
         self.reset()
 
     def reset(self):
