@@ -1,10 +1,14 @@
 import math
 import time
 
+from lib import audio
 from lib.artnetcontroller import ArtNetController
-from lib.scenes import Scene, SceneScript
+from lib.scenes import AudioScene, SceneScript
+from visuliser import VisualiserDimmerOverlay
 
 controller = ArtNetController("192.168.1.169")
+
+audio.select_device(auto=True)
 
 class SchallTest(SceneScript):
     def run(self):
@@ -24,7 +28,7 @@ class SchallTest(SceneScript):
                     panel.setLight(r * 255, g * 255, b * 255)
                 time.sleep(0.025)
 
-scene = Scene(SchallTest(), [], lambda lights: controller.send_packet(lights.get_channel_values()))
+scene = AudioScene(SchallTest(), [VisualiserDimmerOverlay()], lambda lights: controller.send_packet(lights.get_channel_values()))
 
 scene.start()
 

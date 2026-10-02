@@ -2,9 +2,14 @@ import time
 
 import numpy as np
 
+from lib import audio
 from lib.arion_lights import LightConfig
+from lib.artnetcontroller import ArtNetController
 from lib.scenes import AudioOverlay, AudioScene, SceneScript
 
+audio.select_device(True)
+
+controller = ArtNetController("192.168.1.169")
 
 class TestScript(SceneScript):
     def run(self):
@@ -34,7 +39,7 @@ def printargb(lights: LightConfig):
     print(lights.panels.a.r, lights.panels.a.g, lights.panels.a.b)
     return lights
 
-scene = AudioScene(TestScript(), [TestAudioOverlay()], printargb)
+scene = AudioScene(TestScript(), [TestAudioOverlay()], lambda lights: controller.send_packet(lights.get_channel_values()))
 
 scene.start()
 

@@ -6,9 +6,9 @@ import numpy as np
 
 from lib import audio
 from lib.arion_lights import LightConfig, Panel
+from lib.artnetcontroller import ArtNetController
 from lib.scenes import AudioOverlay, AudioScene, SceneScript
 
-audio.select_device()
 
 class Group:
     def __init__(self, freq_range: tuple[float, float], panels: Callable[[LightConfig], list[Panel]], scale: float = 1, r: float = 1, g: float = 1, b: float = 1):
@@ -19,17 +19,16 @@ class Group:
         self.g = g
         self.b = b
 
-# panels: m is not connected i think
 # The groups are only defined outside the classes here as the background and the overlay need the same groupings.
 # This is pretty unclean tbh but works for now 
 def getgroup1(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.d, lights.panels.h, lights.panels.n, lights.panels.m, lights.panels.t, lights.panels.v]
+    return [lights.panels.d, lights.panels.h, lights.panels.n, lights.panels.t, lights.panels.v]
 
 def getgroup2(lights: LightConfig) -> list[Panel]:
     return [lights.panels.b, lights.panels.e, lights.panels.g, lights.panels.f, lights.panels.r, lights.panels.s]
 
 def getgroup3(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.a, lights.panels.c, lights.panels.i, lights.panels.o, lights.panels.p, lights.panels.q, lights.panels.u]
+    return [lights.panels.a, lights.panels.c, lights.panels.i, lights.panels.o, lights.panels.p, lights.panels.q, lights.panels.u, lights.panels.m]
 
 groups = [Group((1, 130), getgroup1, 1, 0, 255, 0), # arion colors
           Group((130, 300), getgroup2, 1.5, 255, 255, 255),
@@ -91,79 +90,88 @@ class VisualiserDimmerOverlay(AudioOverlay):
                 panel.g *= scale
                 panel.b *= scale
 
+        return lights
 
-scene = AudioScene(VisualiserBackground(), [VisualiserDimmerOverlay()], lambda lights: None)
-scene.start()
+# if you run this file directly you get an example
+if __name__ == "__main__":
+    controller = ArtNetController("192.168.1.169")
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-g', '--graph',
-                    action='store_true', help="enables matplotlib graph display of visuliser bins")
-args = parser.parse_args()
+    from lib import audio
 
-# ==============================
-# PLOTTING STUFF
-# ==============================
-if args.graph:
-    import matplotlib.pyplot as plt
-    from matplotlib import animation
+    audio.select_device(auto=True)
 
-    overlay = scene.overlays[0]
+    scene = AudioScene(VisualiserBackground(), [VisualiserDimmerOverlay()], lambda lights: controller.send_packet(lights.get_channel_values()))
+    scene.start()
 
-    def live_plot():
-        # Set up the figure and axis
-        fig, ax = plt.subplots(figsize=(10, 5))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-g', '--graph',
+                        action='store_true', help="enables matplotlib graph display of visuliser bins")
+    args = parser.parse_args()
 
-        # 1. Plot the 257 FFT buckets against the frequency values
-        line, = ax.plot(overlay.frequcey_values, np.zeros_like(overlay.frequcey_values),
-                        color='b', alpha=0.6, label='FFT Spectrum (Scaled)')
+    # ==============================
+    # PLOTTING STUFF
+    # ==============================
+    if args.graph:
+        import matplotlib.pyplot as plt
+        from matplotlib import animation
 
-        bound_frequencies = overlay.frequcey_values[list(
-            itertools.chain(*(overlay.range_indicies)))]
-        for bound in bound_frequencies:
-            ax.axvline(x=bound, color='gray', linestyle='--', alpha=0.7,
-                       label='Group Bound' if bound == bound_frequencies[0] else "")
+        overlay = scene.overlays[0]
 
-        # 3. Calculate the center frequency (arithmetic middle) of each group for the dots
-        middle_frequencies = [
-            (overlay.frequcey_values[start] + overlay.frequcey_values[end - 1]) / 2
-            for start, end in overlay.range_indicies
-        ]
+        def live_plot():
+            # Set up the figure and axis
+            fig, ax = plt.subplots(figsize=(10, 5))
 
-        # Initialize the scatter dots representing the calculated value for each group
-        dots = ax.scatter(middle_frequencies, np.zeros(
-            len(groups)), color='red', s=60, zorder=5, label='Group Average (Smoothed)')
+            # 1. Plot the 257 FFT buckets against the frequency values
+            line, = ax.plot(overlay.frequcey_values, np.zeros_like(overlay.frequcey_values),
+                            color='b', alpha=0.6, label='FFT Spectrum (Scaled)')
 
-        # Aesthetics and limits
-        ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('Amplitude')
-        ax.set_title('Live Audio FFT Spectrum & Frequency Groups')
-        # Focus view on your active range up to 16kHz
-        ax.set_xlim(min(bound_frequencies) * 0.95,
-                    max(bound_frequencies) * 1.05)
-        ax.set_xscale('log')
-        ax.set_ylim(0, 2)  # Initial y-limit
-        ax.set_autoscaley_on(False)
-        ax.legend(loc='upper right')
-        ax.grid(True, alpha=0.3)
+            bound_frequencies = overlay.frequcey_values[list(
+                itertools.chain(*(overlay.range_indicies)))]
+            for bound in bound_frequencies:
+                ax.axvline(x=bound, color='gray', linestyle='--', alpha=0.7,
+                        label='Group Bound' if bound == bound_frequencies[0] else "")
 
-        # Animation update loop called periodically by FuncAnimation
-        def update(frame):
-            # Update the main FFT line data
-            line.set_ydata(overlay.fft_values)
+            # 3. Calculate the center frequency (arithmetic middle) of each group for the dots
+            middle_frequencies = [
+                (overlay.frequcey_values[start] + overlay.frequcey_values[end - 1]) / 2
+                for start, end in overlay.range_indicies
+            ]
 
-            # Update the y-coordinates of the 4 group dots
-            dots.set_offsets(np.column_stack(
-                (middle_frequencies, overlay.visuliser_values)))
+            # Initialize the scatter dots representing the calculated value for each group
+            dots = ax.scatter(middle_frequencies, np.zeros(
+                len(groups)), color='red', s=60, zorder=5, label='Group Average (Smoothed)')
 
-            return line, dots
+            # Aesthetics and limits
+            ax.set_xlabel('Frequency (Hz)')
+            ax.set_ylabel('Amplitude')
+            ax.set_title('Live Audio FFT Spectrum & Frequency Groups')
+            # Focus view on your active range up to 16kHz
+            ax.set_xlim(min(bound_frequencies) * 0.95,
+                        max(bound_frequencies) * 1.05)
+            ax.set_xscale('log')
+            ax.set_ylim(0, 2)  # Initial y-limit
+            ax.set_autoscaley_on(False)
+            ax.legend(loc='upper right')
+            ax.grid(True, alpha=0.3)
 
-        # Create the animation loop (interval=30ms targets ~33 FPS)
-        ani = animation.FuncAnimation(  # noqa:F841
-            fig, update, interval=30, blit=False, cache_frame_data=False)
+            # Animation update loop called periodically by FuncAnimation
+            def update(frame):
+                # Update the main FFT line data
+                line.set_ydata(overlay.fft_values)
 
-        # Keeps the window open and processing events until closed manually
-        plt.show()
+                # Update the y-coordinates of the 4 group dots
+                dots.set_offsets(np.column_stack(
+                    (middle_frequencies, overlay.visuliser_values)))
 
-    live_plot()
+                return line, dots
 
-input("Press enter to close")
+            # Create the animation loop (interval=30ms targets ~33 FPS)
+            ani = animation.FuncAnimation(  # noqa:F841
+                fig, update, interval=30, blit=False, cache_frame_data=False)
+
+            # Keeps the window open and processing events until closed manually
+            plt.show()
+
+        live_plot()
+
+    input("Press enter to close")
