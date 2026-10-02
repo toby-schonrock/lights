@@ -1,15 +1,16 @@
-from abc import ABC, abstractmethod
-from collections.abc import Callable
 import ctypes
 import sys
 import threading
 import time
-from typing import Union
+from abc import ABC, abstractmethod
+from collections.abc import Callable
 from copy import deepcopy
 
 import numpy as np
+
+from lib import audio
 from lib.arion_lights import LightConfig
-import lib.audio as audio
+
 
 def _force_kill_thread(thread: threading.Thread):
     """
@@ -49,7 +50,6 @@ class SceneScript(ABC):
     @abstractmethod
     def run(self):
         """Runs when the scene is active."""
-        pass
 
 class Overlay(ABC):
     """Abstract base class for an overlay modifying light values."""
@@ -98,7 +98,6 @@ class Scene:
 
     def start(self):
         """Starts both the user's background logic thread and the network dispatcher thread."""
-        bg_stop_event = threading.Event()
         
         def run_user_script():
             try:
@@ -134,7 +133,7 @@ class Scene:
         print("Scene stopped.")
 
 class AudioScene(Scene):
-    def __init__(self, bg: SceneScript, overlays: list[Union[Overlay, AudioOverlay]], callback: Callable[[LightConfig], None]):
+    def __init__(self, bg: SceneScript, overlays: list[Overlay | AudioOverlay], callback: Callable[[LightConfig], None]):
         super().__init__(bg, overlays, callback)
         self.audio_data = np.zeros(1024)
 

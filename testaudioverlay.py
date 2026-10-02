@@ -3,7 +3,8 @@ import time
 import numpy as np
 
 from lib.arion_lights import LightConfig
-from lib.scenes import AudioScene, SceneScript, AudioOverlay
+from lib.scenes import AudioOverlay, AudioScene, SceneScript
+
 
 class TestScript(SceneScript):
     def run(self):

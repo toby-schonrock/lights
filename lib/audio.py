@@ -55,7 +55,7 @@ def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> 
     Raises RuntimeError if a stream is already active.
     Returns a stop function to halt and clean up the stream.
     """
-    global _current_stream, inputdevind, samplingrate
+    global _current_stream
 
     if _current_stream is not None and _current_stream.active:
         raise RuntimeError("Cannot bind a new stream: the previous audio stream is still running.")

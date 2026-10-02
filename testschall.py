@@ -1,8 +1,8 @@
 import math
 import time
 
-from lib.scenes import Scene, SceneScript
 from lib.artnetcontroller import ArtNetController
+from lib.scenes import Scene, SceneScript
 
 controller = ArtNetController("192.168.1.169")
 

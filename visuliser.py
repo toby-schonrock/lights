@@ -1,14 +1,12 @@
 import argparse
-from collections.abc import Callable
 import itertools
-import sys
+from collections.abc import Callable
 
 import numpy as np
-import sounddevice as sd
 
+from lib import audio
+from lib.arion_lights import LightConfig, Panel
 from lib.scenes import AudioOverlay, AudioScene, SceneScript
-from lib.arion_lights import LightState, LightConfig, Panel
-import lib.audio as audio
 
 audio.select_device()
 

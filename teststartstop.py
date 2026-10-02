@@ -1,7 +1,8 @@
 import time
 
-from lib.scenes import Scene, SceneScript, AudioScene
-import lib.audio as audio 
+from lib import audio
+from lib.scenes import AudioScene, Scene, SceneScript
+
 
 class TestScript(SceneScript):
     def run(self):
