@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     from lib import audio
 
-    audio.select_device(auto=True)
+    audio.select_device()
 
     scene = AudioScene(VisualiserBackground(), [VisualiserDimmerOverlay()], lambda lights: controller.send_packet(lights.get_channel_values()))
     scene.start()
