@@ -75,6 +75,8 @@ if __name__ == "__main__":
     scene = AudioScene(RainbowsPanel(), [VisualiserDimmerOverlay()], saveconf, True)
     scene.start()
 
+    # unfortunately we have to block thread instead of just letting the scene handle it
+    # this is because pygame has to run on main thread
     while True:
         if light_conf:
             rig.update_display(light_conf)

@@ -9,41 +9,26 @@ from lib.arion_lights import LightConfig, Panel
 from lib.artnetcontroller import ArtNetController
 from lib.scenes import AudioOverlay, AudioScene, SceneScript
 
+group1names = ["g", "h", "i", "t", "u", "v"]
+group2names = ["e", "f", "q", "r", "s"]
+group3names = ["a", "b", "c", "d", "m", "n", "o", "p"]
+groupnames = [group1names, group2names, group3names]
 
 class Group:
-    def __init__(self, freq_range: tuple[float, float], panels: Callable[[LightConfig], list[Panel]], scale: float = 1, r: float = 1, g: float = 1, b: float = 1):
+    def __init__(self, freq_range: tuple[float, float], panels: Callable[[LightConfig], list[Panel]], scale: float = 1):
         self.freq_range = freq_range
         self.scale = scale
-        self.panels = panels
-        self.r = r
-        self.g = g
-        self.b = b
-
-# The groups are only defined outside the classes here as the background and the overlay need the same groupings.
-# This is pretty unclean tbh but works for now 
-def getgroup1(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.g, lights.panels.h, lights.panels.i, lights.panels.t, lights.panels.u, lights.panels.v]
-
-def getgroup2(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.e, lights.panels.f, lights.panels.q, lights.panels.r, lights.panels.s]
-
-def getgroup3(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.a, lights.panels.b, lights.panels.c, lights.panels.d, lights.panels.m, lights.panels.n, lights.panels.o, lights.panels.p]
-
-groups = [Group((1, 130), getgroup1, 1, 0, 255, 0), # arion colors
-          Group((130, 300), getgroup2, 1.5, 255, 255, 255),
-          Group((300, 5000), getgroup3, 2.5, 0, 0, 255)]
-class VisualiserBackground(SceneScript):
-    def run(self):
-        lights = self.lights
-        for group in groups:
-            for panel in group.panels(lights):
-                panel.setLight(group.r, group.g, group.b)
+        self.panel_names = panels
 
 class VisualiserDimmerOverlay(AudioOverlay):
     def __init__(self):
         if audio.inputdevind is None:
+            # this is because we use several of the device properties
             raise RuntimeError("No audio input device found. Please confirm the audio library has a called select_device before initialising this class")
+
+        self.groups = [Group((1, 130), group1names, 1), 
+          Group((130, 300), group2names, 1.5),
+          Group((300, 5000), group3names, 2.5)]
 
         self.blocksize = audio.blocksize
         self.samplingrate = audio.samplingrate
@@ -54,14 +39,14 @@ class VisualiserDimmerOverlay(AudioOverlay):
         self.range_indicies: list[tuple[int, int]] = [(
             np.searchsorted(self.frequcey_values, group.freq_range[0]),
             np.searchsorted(self.frequcey_values, group.freq_range[1]))
-            for group in groups
+            for group in self.groups
         ]
 
         self.scaling = 5
         self.max_value_clamp = 1.5
 
         # these are globals so that both plotting and auio processing threads can access them
-        self.visuliser_values = np.zeros(len(groups))
+        self.visuliser_values = np.zeros(len(self.groups))
         self.fft_values = np.zeros(len(self.frequcey_values))
 
 
@@ -81,11 +66,12 @@ class VisualiserDimmerOverlay(AudioOverlay):
     
         self.visuliser_values = self.maxsmoothing(self.visuliser_values, newvalues)
 
-        for i, grp in enumerate(groups):
+        for i, grp in enumerate(self.groups):
             scale = 0.3 + 0.7 * grp.scale * self.visuliser_values[i]
             if i != 0:  # side chain prevents kick overpowering
                 scale -= 0.25 * self.visuliser_values[0]
-            for panel in grp.panels(lights):
+            for panelname in grp.panel_names:
+                panel = getattr(lights.panels, panelname, None)
                 panel.r *= scale
                 panel.g *= scale
                 panel.b *= scale
@@ -94,6 +80,23 @@ class VisualiserDimmerOverlay(AudioOverlay):
 
 # if you run this file directly you get an example
 if __name__ == "__main__":
+    class VisualiserBackground(SceneScript):
+        def run(self):
+            lights = self.lights
+            # arion colors
+            for panel in group1names:
+                panel = getattr(lights.panels, panel, None)
+                panel.setLight(0, 255, 0)
+
+            for panel in group2names:
+                panel = getattr(lights.panels, panel, None)
+                panel.setLight(255, 255, 255)
+
+            for panel in group3names:
+                panel = getattr(lights.panels, panel, None)
+                panel.setLight(0, 0, 255)
+
+
     controller = ArtNetController("192.168.1.169")
 
     from lib import audio
@@ -139,7 +142,7 @@ if __name__ == "__main__":
 
             # Initialize the scatter dots representing the calculated value for each group
             dots = ax.scatter(middle_frequencies, np.zeros(
-                len(groups)), color='red', s=60, zorder=5, label='Group Average (Smoothed)')
+                len(groupnames)), color='red', s=60, zorder=5, label='Group Average (Smoothed)')
 
             # Aesthetics and limits
             ax.set_xlabel('Frequency (Hz)')
