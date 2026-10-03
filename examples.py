@@ -89,7 +89,7 @@ class PanelCircle(Overlay):
 
 if __name__ == "__main__":
     from lib.scenes import Scene
-    from virtualrig import VirtualRig
+    from lib.virtualrig import VirtualRig
 
     rig = VirtualRig()
 
