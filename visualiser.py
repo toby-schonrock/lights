@@ -22,13 +22,13 @@ class Group:
 # The groups are only defined outside the classes here as the background and the overlay need the same groupings.
 # This is pretty unclean tbh but works for now 
 def getgroup1(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.d, lights.panels.h, lights.panels.n, lights.panels.t, lights.panels.v]
+    return [lights.panels.g, lights.panels.h, lights.panels.i, lights.panels.t, lights.panels.u, lights.panels.v]
 
 def getgroup2(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.b, lights.panels.e, lights.panels.g, lights.panels.f, lights.panels.r, lights.panels.s]
+    return [lights.panels.e, lights.panels.f, lights.panels.q, lights.panels.r, lights.panels.s]
 
 def getgroup3(lights: LightConfig) -> list[Panel]:
-    return [lights.panels.a, lights.panels.c, lights.panels.i, lights.panels.o, lights.panels.p, lights.panels.q, lights.panels.u, lights.panels.m]
+    return [lights.panels.a, lights.panels.b, lights.panels.c, lights.panels.d, lights.panels.m, lights.panels.n, lights.panels.o, lights.panels.p]
 
 groups = [Group((1, 130), getgroup1, 1, 0, 255, 0), # arion colors
           Group((130, 300), getgroup2, 1.5, 255, 255, 255),

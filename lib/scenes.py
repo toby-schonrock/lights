@@ -133,9 +133,10 @@ class Scene:
         print("Scene stopped.")
 
 class AudioScene(Scene):
-    def __init__(self, bg: SceneScript, overlays: list[Overlay | AudioOverlay], callback: Callable[[LightConfig], None]):
+    def __init__(self, bg: SceneScript, overlays: list[Overlay | AudioOverlay], callback: Callable[[LightConfig], None], playfromfile : bool = False ):
         super().__init__(bg, overlays, callback)
         self.audio_data = np.zeros(1024)
+        self.playfromfile = playfromfile
 
     def _start_dispatcher(self):
         def handle_audio_data(indata: np.ndarray, frames: int, time, status):
@@ -148,7 +149,10 @@ class AudioScene(Scene):
 
             self.callback(lights)
 
-        self._stop_dispatcher = audio.bind(handle_audio_data)
+        if self.playfromfile:
+            self._stop_dispatcher = audio.bind_file("song.mp3", handle_audio_data, True, True)
+        else:
+            self._stop_dispatcher = audio.bind(handle_audio_data)
 
     def _render(self, audio_data: np.ndarray):
         """Renders the current light values without starting any threads."""

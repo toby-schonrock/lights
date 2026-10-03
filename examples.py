@@ -1,8 +1,10 @@
 import math
 import time
 
+import numpy as np
+
 from lib.arion_lights import LightConfig, LightState
-from lib.scenes import Overlay, SceneScript
+from lib.scenes import AudioOverlay, Overlay, SceneScript
 
 
 class RainbowsPanel(SceneScript):
@@ -35,10 +37,32 @@ class DimmerOverlay(Overlay):
         
         return lights
 
+class VolumeDimmer(AudioOverlay):
+    def apply(self, lights: LightConfig, audio_data: np.ndarray) -> LightConfig:
+        # Example: Set all panels brightness based on the average audio amplitude
+        avg_amplitude = np.mean(np.abs(audio_data))
+        avg_amplitude = min(avg_amplitude * 10, 1)
+        
+        for panel in lights.panels:
+                    panel.r *= self.brightness
+                    panel.g *= self.brightness
+                    panel.b *= self.brightness
+        
+        for head in lights.overheads:
+            head.brightness_strobe = LightState.brightness(self.brightness * 255)
+
+        for head in lights.moving_heads:
+            head.brightness_strobe = LightState.brightness(self.brightness * 255)
+        return lights
+
 
 if __name__ == "__main__":
-    from lib.scenes import Scene
+    from lib import audio
+    from lib.scenes import AudioScene
     from virtualrig import VirtualRig
+    from visualiser import VisualiserDimmerOverlay
+
+    audio.select_device(True)
 
     rig = VirtualRig()
 
@@ -48,9 +72,10 @@ if __name__ == "__main__":
         global light_conf
         light_conf = lights
 
-    scene = Scene(RainbowsPanel(), [DimmerOverlay()], saveconf)
+    scene = AudioScene(RainbowsPanel(), [VisualiserDimmerOverlay()], saveconf, True)
     scene.start()
 
     while True:
-        rig.update_display(light_conf)
+        if light_conf:
+            rig.update_display(light_conf)
         time.sleep(1 / 60)
