@@ -1,5 +1,6 @@
 import math
 import time
+import typing
 
 import numpy as np
 
@@ -55,14 +56,40 @@ class VolumeDimmer(AudioOverlay):
             head.brightness_strobe = LightState.brightness(self.brightness * 255)
         return lights
 
+class PanelCircle(Overlay):
+    """
+    Highligts the panels in a circle pattern.
+    Freq is for each rotation. Negative freq is backwards.
+    """
+    ORDER : typing.ClassVar = [("d", "m"), ("c", "n"), ("b", "o"), ("a","p"), ("g","v"), ("h","u"), ("i","t"), ("f","q")]
+    def __init__(self, freq = 1, base_mult = 0.5, high_mult = 1):
+        self.start_time = None
+        self.freq = freq
+        self.base_mult = base_mult
+        self.high_mult = high_mult
+
+    def apply(self, lights: LightConfig) -> LightConfig:
+        if self.start_time is None:
+            self.start_time = time.monotonic()
+
+        now = time.monotonic()
+        selectedInd = round((now - self.start_time) * self.freq * 8) % 8
+        selected = [getattr(lights.panels, self.ORDER[selectedInd][0], None), getattr(lights.panels, self.ORDER[selectedInd][1], None)]
+        for panel in lights.panels:
+            if panel in selected:
+                mult = self.high_mult
+            else:
+                mult = self.base_mult
+            
+            panel.r *= mult
+            panel.g *= mult
+            panel.b *= mult
+
+        return lights
 
 if __name__ == "__main__":
-    from lib import audio
-    from lib.scenes import AudioScene
+    from lib.scenes import Scene
     from virtualrig import VirtualRig
-    from visualiser import VisualiserDimmerOverlay
-
-    audio.select_device(True)
 
     rig = VirtualRig()
 
@@ -72,7 +99,7 @@ if __name__ == "__main__":
         global light_conf
         light_conf = lights
 
-    scene = AudioScene(RainbowsPanel(), [VisualiserDimmerOverlay()], saveconf, True)
+    scene = Scene(RainbowsPanel(), [PanelCircle(-3)], saveconf)
     scene.start()
 
     # unfortunately we have to block thread instead of just letting the scene handle it
