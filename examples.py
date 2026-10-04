@@ -131,7 +131,6 @@ class PanelWave(Overlay):
             panel.g *= mult
             panel.b *= mult
             
-
         return lights
 
 if __name__ == "__main__":
@@ -140,18 +139,7 @@ if __name__ == "__main__":
 
     rig = VirtualRig()
 
-    light_conf = None
-
-    def saveconf(lights):
-        global light_conf
-        light_conf = lights
-
-    scene = Scene(Arion(), [PanelWave(3)], saveconf)
+    scene = Scene(Arion(), [PanelWave(3, 0, 0.8, 0.6)], rig.callback)
     scene.start()
 
-    # unfortunately we have to block thread instead of just letting the scene handle it
-    # this is because pygame has to run on main thread
-    while True:
-        if light_conf:
-            rig.update_display(light_conf)
-        time.sleep(1 / 60)
+    rig.run()

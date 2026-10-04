@@ -1,5 +1,5 @@
-import math
 import sys
+import time
 
 import pygame
 
@@ -7,7 +7,6 @@ from lib.arion_lights import LightConfig
 
 
 class VirtualRig:
-
   def __init__(self, width=1450, height=600):
     pygame.init()
     self.width = width
@@ -25,6 +24,14 @@ class VirtualRig:
     # Panel physical dimensions in meters (62x82 cm)
     self.panel_w_m = 0.62
     self.panel_h_m = 0.82
+
+    self.lights = LightConfig()
+    
+    def callback(lights: LightConfig):
+      self.lights = lights
+    
+    self.callback = callback
+    """Callback to save a light state"""
 
   def _is_right_wall(self, name: str) -> bool:
     return name >= "m"
@@ -50,7 +57,6 @@ class VirtualRig:
     return int(sx), int(sy)
 
   def update_display(self, lights: LightConfig):
-    """Call this in your callback loop to refresh the visualizer window."""
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         pygame.quit()
@@ -87,17 +93,9 @@ class VirtualRig:
     pygame.display.flip()
     self.clock.tick(60)
 
-
-# --- Example Integration Test ---
-if __name__ == "__main__":
-  rig = VirtualRig()
-
-  # Quick test loop animating panel colors
-  config = LightConfig()
-  i = 0
-  while True:
-    i += 2
-    config.panels.a.r = int((math.sin(math.radians(i)) + 1) * 127)
-    config.panels.m.g = int((math.cos(math.radians(i)) + 1) * 127)
-
-    rig.update_display(config)
+  def run(self):
+    """Blocking function which runs the display loop"""
+    while True:
+        if self.lights:
+            self.update_display(self.lights)
+        time.sleep(1 / 60)
