@@ -75,11 +75,14 @@ class Panel:
     g = DmxByte()
     b = DmxByte()
 
-    def __init__(self, channel: int):
+    def __init__(self, name: str, channel: int, position: tuple[float, float], is_vertical: bool):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
+        self.name = name
         self.channel = channel
+        self.position = position
+        self.is_vertical = is_vertical
 
     def reset(self):
         self.setLight(0, 0, 0)
@@ -214,25 +217,27 @@ class MovingHead:
 
 class _panels:
     def __init__(self):
-        self.a = Panel(129)
-        self.b = Panel(168)
-        self.c = Panel(135)
-        self.d = Panel(165)
-        self.e = Panel(141)
-        self.f = Panel(144)
-        self.g = Panel(147)
-        self.h = Panel(159)
-        self.i = Panel(150)
-        self.m = Panel(156)
-        self.n = Panel(162)
-        self.o = Panel(180)
-        self.p = Panel(153)
-        self.q = Panel(132)
-        self.r = Panel(171)
-        self.s = Panel(174)
-        self.t = Panel(177)
-        self.u = Panel(138)
-        self.v = Panel(183)
+        # left side
+        self.a = Panel("a", 129, (0.34, 2.38), True)
+        self.b = Panel("b", 168, (1.25, 2.51), True)
+        self.c = Panel("c", 135, (2.20, 2.81), False)
+        self.d = Panel("d", 165, (3.30, 2.61), True)
+        self.e = Panel("e", 141, (2.08, 1.94), False)
+        self.f = Panel("f", 144, (3.15, 1.73), False)
+        self.g = Panel("g", 147, (1.06, 1.15), False)
+        self.h = Panel("h", 159, (2.11, 0.85), True)
+        self.i = Panel("i", 150, (3.01, 0.85), False)
+        self.m = Panel("m", 156, (3.23, 2.81), False)
+        self.n = Panel("n", 162, (2.31, 2.46), True)
+        self.o = Panel("o", 180, (1.16, 2.81), False)
+        self.p = Panel("p", 153, (0.23, 2.59), True)
+        self.q = Panel("q", 132, (3.12, 1.91), False)
+        self.r = Panel("r", 171, (1.31, 1.91), False)
+        self.s = Panel("s", 174, (0.13, 1.73), False)
+        self.t = Panel("t", 177, (3.23, 1.05), False)
+        self.u = Panel("u", 138, (2.32, 1.18), True)
+        self.v = Panel("v", 183, (1.14, 1.06), False)
+        # right side
 
         self._ordered = [self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h, self.i, self.m, self.n, self.o, self.p, self.q, self.r, self.s, self.t, self.u, self.v]
 

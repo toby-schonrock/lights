@@ -26,31 +26,6 @@ class VirtualRig:
     self.panel_w_m = 0.62
     self.panel_h_m = 0.82
 
-    # Calibrated layout configuration
-    self.layout = {
-        # left panels (Bottom-left origin, X grows right)
-        'a': [0.34, 2.38, True],
-        'b': [1.25, 2.51, True],
-        'c': [2.2, 2.81, False],
-        'd': [3.3, 2.61, True],
-        'e': [2.08, 1.94, False],
-        'f': [3.15, 1.73, False],
-        'g': [1.06, 1.15, False],
-        'h': [2.11, 0.85, True],
-        'i': [3.01, 0.85, False],
-        # right panels (Bottom-right origin, X grows left due to 3D rotation)
-        'm': [3.23, 2.81, False],
-        'n': [2.31, 2.46, True],
-        'o': [1.16, 2.81, False],
-        'p': [0.23, 2.59, True],
-        'q': [3.12, 1.91, False],
-        'r': [1.31, 1.91, False],
-        's': [0.13, 1.73, False],
-        't': [3.23, 1.05, False],
-        'u': [2.32, 1.18, True],
-        'v': [1.14, 1.06, False],
-    }
-
   def _is_right_wall(self, name: str) -> bool:
     return name >= "m"
 
@@ -90,12 +65,11 @@ class VirtualRig:
     self.screen.blit(lw_label, (self.width / 5, 20))
     self.screen.blit(rw_label, (4 * self.width / 5 - 100, 20))
 
-    panels = lights.panels
-
-    for name, (wx, wy, is_vertical) in self.layout.items():
-      panel = getattr(panels, name, None)
-      
+    for panel in lights.panels:
       color = (panel.r, panel.g, panel.b)
+      is_vertical = panel.is_vertical
+      wx, wy = panel.position
+      name = panel.name
 
       # Get coordinates and dimensions based on wall system
       screen_x, screen_y = self._world_to_screen(wx, wy, is_vertical, name)
