@@ -10,7 +10,7 @@ inputdevind = None
 blocksize = 1024
 samplingrate = None
 
-def select_device(auto: bool = False, print_info: bool = True, device_name: str = "Razer Seiren Mini"):
+def select_device(device_name: str = "Razer Seiren Mini", auto: bool = False, print_info: bool = True):
     """Selects an input device, falling back to defaults or auto-selection."""
     global inputdevind, samplingrate
 
@@ -48,7 +48,7 @@ def select_device(auto: bool = False, print_info: bool = True, device_name: str 
     if channels == 0:
         raise ValueError("Max possible channel count 0 :(")
 
-def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> Callable[[], None]:
+def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> tuple[Callable[[], None], Callable[[], None]]:
     """Binds a callback to a new live audio input stream.
     
     Raises RuntimeError if a stream is already active.
@@ -81,31 +81,31 @@ def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> 
             _current_stream = None
             print("Audio stream stopped.")
 
-    return stop_stream
+    return _current_stream.start, stop_stream
 
 def bind_file(
     filepath: str, 
     callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None], 
     loop: bool = False, 
     speaker_output: bool = True
-) -> Callable[[], None]:
+) -> tuple[Callable[[], None], Callable[[], None]]:
     """Plays an audio file, optionally streams data to speakers, and calls 
     the provided callback with the audio chunks.
     
     Raises RuntimeError if a stream is already active.
     Returns a stop function to halt and clean up playback.
     """
-    global _current_stream
+    global _current_stream, samplingrate
 
     if _current_stream is not None and _current_stream.active:
         raise RuntimeError("Cannot bind a new stream: the previous audio stream is still running.")
 
     # Open the audio file
     f = sf.SoundFile(filepath)
-    file_sr = f.samplerate
+    samplingrate = f.samplerate
     channels = f.channels
 
-    print(f"Opening audio file: {filepath} ({file_sr} Hz, {channels} channels)")
+    print(f"Opening audio file: {filepath} ({samplingrate} Hz, {channels} channels)")
 
     def file_callback(outdata, frames, time_info, status):
         if status:
@@ -134,7 +134,7 @@ def bind_file(
         callback(data, frames, time_info, status)
 
     _current_stream = sd.OutputStream(
-        samplerate=file_sr,
+        samplerate=samplingrate,
         blocksize=blocksize,
         channels=channels,
         callback=file_callback

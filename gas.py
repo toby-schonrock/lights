@@ -1,22 +1,20 @@
 # For end to end testing
 
 # !!!!!!! WARNING !!!!!!!
-# Letting this run for extended periods 
+# Letting this run for extended periods
 # of time can lead to alchohol poisoning.
 
 # Use at own risk
 
 from examples import RainbowsPanel
-from lib import audio
-from lib.artnetcontroller import ArtNetController
-from lib.scenes import AudioScene
+from lib.scenes import SceneConfig
+from lib.virtualrig import VirtualRig
 from visualiser import VisualiserDimmerOverlay
 
-audio.select_device(True)
+rig = VirtualRig()
 
-controller = ArtNetController("192.168.1.169")
-
-scene = AudioScene(RainbowsPanel(), [VisualiserDimmerOverlay()], lambda lights: controller.send_packet(lights.get_channel_values()), True)
+scene = RainbowsPanel(SceneConfig.playback(), [VisualiserDimmerOverlay()])
 scene.start()
+scene.start_dispatcher(rig.callback)
 
-input()
+rig.run()
