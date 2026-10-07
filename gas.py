@@ -13,7 +13,7 @@ from visualiser import VisualiserDimmerOverlay
 
 rig = VirtualRig()
 
-scene = RainbowsPanel(SceneConfig.playback(), [VisualiserDimmerOverlay()])
+scene = RainbowsPanel(SceneConfig.playback("audio_files/song.mp3"), [VisualiserDimmerOverlay()])
 scene.start()
 scene.start_dispatcher(rig.callback)
 

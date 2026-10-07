@@ -1,5 +1,4 @@
 import ctypes
-import sys
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -8,10 +7,9 @@ from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 
-import numpy as np
-
 from lib import audio
 from lib.arion_lights import LightConfig
+from lib.frame_context import FrameContext
 
 
 def _force_kill_thread(thread: threading.Thread):
@@ -40,18 +38,6 @@ def _force_kill_thread(thread: threading.Thread):
         print("Error: Failed to safely abort thread cleanly, reverted.")
 
 
-class FrameContext:
-    def __init__(
-        self,
-        lights: LightConfig = None,
-        audio_data: np.ndarray | None = None,
-        timestamp: float | None = None,
-    ):
-        self.lights = lights
-        self.audio_data = audio_data
-        self.timestamp = timestamp
-
-
 class SceneType(Enum):
     POLL = "poll"
     MIC = "mic"
@@ -63,7 +49,7 @@ class SceneConfig:
         self,
         type: SceneType,
         poll_interval: float = 0.025,
-        audio_file: Path | None = Path("song.mp3"),
+        audio_file: Path | None = None,
         output_enabled: bool = True,
     ):
         self.type = type
@@ -83,7 +69,7 @@ class SceneConfig:
 
     @classmethod
     def playback(
-        cls, audio_file: Path | None = Path("song.mp3"), output_enabled: bool = True
+        cls, audio_file: Path, output_enabled: bool = True
     ) -> "SceneConfig":
         return cls(
             SceneType.PLAYBACK, audio_file=audio_file, output_enabled=output_enabled
@@ -135,9 +121,9 @@ class Scene(ABC):
             next_frame = time.monotonic()
 
             while not dp_stop_event.is_set():
-                current_lights = self._render(FrameContext())
+                lights = self._render(FrameContext())
 
-                callback(current_lights)
+                callback(lights)
 
                 next_frame += interval
                 delay = next_frame - time.monotonic()
@@ -152,15 +138,7 @@ class Scene(ABC):
         return dp_stop_event.set
 
     def _start_audio_dispatcher(self, callback: Callable[[LightConfig], None]):
-        def handle_audio_data(indata: np.ndarray, frames: int, time, status):
-            if status and str(status) == "input overflow":
-                print(
-                    "Input overflow. Could be caused by low latency selected",
-                    file=sys.stderr,
-                )
-
-            context = FrameContext()
-            context.audio_data = indata[:, 0]
+        def render(context: FrameContext):
             lights = self._render(context)
 
             callback(lights)
@@ -168,12 +146,12 @@ class Scene(ABC):
         if self.config.type == SceneType.PLAYBACK:
             return audio.bind_file(
                 self.config.audio_file,
-                handle_audio_data,
+                render,
                 True,
                 self.config.output_enabled,
             )
         else:
-            return audio.bind(handle_audio_data)
+            return audio.bind(render)
 
     def start_dispatcher(self, callback: Callable[[LightConfig], None]):
         if self.config.type == SceneType.POLL:
