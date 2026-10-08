@@ -1,4 +1,5 @@
 import sys
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -147,6 +148,7 @@ def bind_file(
     def file_callback(outdata, frames, _, status):
         global timestamp, _delay_buffer, _buffer_pos
 
+        start = time.monotonic()
         if status:
             print(status, file=sys.stderr)
 
@@ -195,6 +197,14 @@ def bind_file(
 
         # Trigger the user callback with the context
         callback(context)
+
+        # processing_time should not exceed 25% of the available time
+        processing_time = time.monotonic() - start
+        available = blocksize / samplingrate
+        if processing_time > 0.5 * available:
+            print("Processing time too slow!")
+            print(f"{processing_time * 1000}ms used")
+            print(f"{available * 1000}ms available")
 
     _current_stream = sd.OutputStream(
         samplerate=samplingrate,
