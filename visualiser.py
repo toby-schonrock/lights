@@ -30,6 +30,7 @@ class Group:
 
 class VisualiserDimmerOverlay(Overlay):
     def __init__(self):
+        super().__init__()
         self.groups = [
             Group((1, 130), group1names, 1),
             Group((130, 300), group2names, 1.5),

@@ -98,7 +98,7 @@ class Scene(ABC):
     def __init__(self, config: SceneConfig, overlays: list[Overlay] | None = None):
         self.config = config
 
-        self.context = None
+        self.context: FrameContext = None
         """
         Stores the last context with which the scene was rendered.
         Will be None untill first call.
