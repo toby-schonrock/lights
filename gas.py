@@ -37,7 +37,7 @@ class Gas(Scene):
         self.overlays[0].disabled = False
         self.overlays[1].disabled = True
 
-    def nomralSection(self):
+    def normalSection(self):
         self.overlays[0].disabled = True
         self.overlays[1].disabled = False
 
@@ -64,11 +64,10 @@ class Gas(Scene):
             if section == gas:
                 self.gasSection()
             elif section == normal:
-                self.nomralSection()
+                self.normalSection()
 
     def run(self):
         lights = self.lights
-        # overlays = self.overlays
 
         # rainbow code
         while True:

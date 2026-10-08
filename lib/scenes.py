@@ -3,7 +3,6 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 
@@ -68,9 +67,7 @@ class SceneConfig:
         return cls(SceneType.MIC)
 
     @classmethod
-    def playback(
-        cls, audio_file: Path, output_enabled: bool = True
-    ) -> "SceneConfig":
+    def playback(cls, audio_file: Path, output_enabled: bool = True) -> "SceneConfig":
         return cls(
             SceneType.PLAYBACK, audio_file=audio_file, output_enabled=output_enabled
         )
@@ -151,7 +148,6 @@ class Scene(ABC):
             return audio.bind_file(
                 self.config.audio_file,
                 render,
-                True,
                 self.config.output_enabled,
             )
         else:
@@ -165,10 +161,14 @@ class Scene(ABC):
 
     def _render(self, context: FrameContext) -> LightConfig:
         """Renders the current light values without starting any threads."""
-        context.lights = self.lights
         self.context = context
 
-        current_context = deepcopy(context)
+        current_context = FrameContext(
+            self.lights.copy(),
+            context.audio_data.copy(),
+            context.timestamp,
+            context.sampling_rate,
+        )
         for overlay in self.overlays:
             if not overlay.disabled:
                 current_context = overlay.apply(current_context)

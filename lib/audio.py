@@ -58,7 +58,7 @@ def select_device(
 def bind(
     callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None],
     device: int | None = None,
-) -> tuple[Callable[[], None], Callable[[], None]]:
+) -> Callable[[], None]:
     """Binds a callback to a new live audio input stream.
 
     Raises RuntimeError if a stream is already active.
@@ -106,90 +106,55 @@ def bind(
     return _current_stream.start, stop_stream
 
 
-fileblockdelay: int = -3
-"""
-+ means playback delayed
-- means lights delayed
-"""
-_delay_buffer = None
-_buffer_pos = None
-timestamp = None
-
+playback_frame_delay: int = -5 # can be negative
 
 def bind_file(
     filepath: str,
     callback: Callable[[FrameContext], None],
-    loop: bool = False,
     speaker_output: bool = True,
-) -> tuple[Callable[[], None], Callable[[], None]]:
+) -> Callable[[], None]:
     """Plays an audio file, optionally streams data to speakers, and calls
     the provided callback with frame context.
 
     Raises RuntimeError if a stream is already active.
     Returns a stop function to halt and clean up playback.
     """
-    global timestamp, _delay_buffer, _buffer_pos
+    # Read entire audio file
+    data, sampling_rate = sf.read(filepath, always_2d=True)
+    data = np.pad(data, ((0, blocksize - (len(data) % blocksize)), (0,0)))
+    assert len(data) % blocksize == 0
+    channels = data.shape[1]
+    frame_idx = 0
+    empty_frame = np.zeros((blocksize, channels))
 
-    # Open the audio file
-    file = sf.SoundFile(filepath)
-    sampling_rate = file.samplerate
-    channels = file.channels
-    timestamp = 0
-    _delay_buffer = np.zeros((abs(int(fileblockdelay)), blocksize, channels))
-    _buffer_pos = 0
+    print(f"Read audio file: {filepath} ({sampling_rate} Hz, {channels} channels)")
 
-    print(f"Opening audio file: {filepath} ({sampling_rate} Hz, {channels} channels)")
+    def read_block(start_idx):
+        """Always call this with a multiple of block size"""
+        end = start_idx + blocksize
+        if start_idx < 0 or end > len(data):
+            return empty_frame
+        return data[start_idx:end]
 
     def file_callback(outdata, frames, _, status):
-        global timestamp, _delay_buffer, _buffer_pos
-
+        nonlocal frame_idx
         start = time.monotonic()
         if status:
             print(status, file=sys.stderr)
 
-        data = file.read(frames, dtype="float32", always_2d=True)
-
-        # Handle file exhaustion and looping
-        if len(data) < frames:
-            if loop:
-                file.seek(0)
-                remaining = frames - len(data)
-                data_extra = file.read(remaining, dtype="float32", always_2d=True)
-                data = np.concatenate((data, data_extra), axis=0)
-            else:
-                # Pad the remainder with zeros
-                data = np.pad(data, ((0, frames - len(data)), (0, 0)))
-
-        if fileblockdelay:
-            if abs(int(fileblockdelay)) != np.size(_delay_buffer, 0):
-                _delay_buffer = np.resize(
-                    _delay_buffer, (abs(int(fileblockdelay)), blocksize, channels)
-                )
-
-            _buffer_pos = _buffer_pos % abs(int(fileblockdelay))
-            buffered = _delay_buffer[_buffer_pos].copy()
-            _delay_buffer[_buffer_pos] = data
-            _buffer_pos += 1
-
         # Stream to speakers if enabled, otherwise mute output buffer
         if speaker_output:
-            if fileblockdelay > 0:
-                outdata[:] = buffered
-            else:
-                outdata[:] = data
+            outdata[:] = read_block(frame_idx - int(playback_frame_delay) * blocksize)
         else:
             outdata.fill(0)
 
         context = FrameContext()
-        if fileblockdelay < 0:
-            context.audio_data = buffered[:, 0]
-        else:
-            context.audio_data = data[:, 0]
 
-        context.timestamp = timestamp
+        context.audio_data = read_block(frame_idx)[:, 0].copy()
+        context.timestamp = frame_idx / sampling_rate
         context.sampling_rate = sampling_rate
 
-        timestamp += len(data) / sampling_rate
+        frame_idx = (frame_idx + blocksize) % len(data)
 
         # Trigger the user callback with the context
         callback(context)
@@ -202,17 +167,24 @@ def bind_file(
             print(f"{processing_time * 1000}ms used")
             print(f"{available * 1000}ms available")
 
+    # try catch wrapper for comfort maybe remove later
+    def safe_file_callback(outdata, frames, _, status):
+        try:
+            file_callback(outdata, frames, _, status)
+        except:
+            print("Runtime error in audio callback")
+            raise
+
     stream = sd.OutputStream(
         samplerate=sampling_rate,
         blocksize=blocksize,
         channels=channels,
-        callback=file_callback,
+        callback=safe_file_callback,
     )
     stream.start()
     print("Audio file playback stream started.")
 
     def stop_stream():
-        file.close()
         if stream is not None:
             stream.stop()
             stream.close()
