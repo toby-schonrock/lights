@@ -4,6 +4,10 @@ from enum import Enum
 from typing import NewType
 
 SAFEVALUES = True
+"""
+If true then descriptors are used to force dmx values to ints between 0-255.
+If false then they can be whatever, but this is faster if you enforce yourself.
+"""
 
 DmxValue = NewType("DmxValue", int)
 
@@ -407,5 +411,8 @@ class LightConfig:
 
         for head in self.moving_heads:
             head._apply(data)
+
+        if not SAFEVALUES:
+            data = [_dmx_value(d) for d in data]
 
         return data
