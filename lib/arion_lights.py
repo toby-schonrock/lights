@@ -3,8 +3,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import NewType
 
-DmxValue = NewType("DmxValue", int)
+SAFEVALUES = True
 
+DmxValue = NewType("DmxValue", int)
 
 def _dmx_value(value: int) -> DmxValue:
     return DmxValue(max(0, min(255, int(value))))
@@ -70,10 +71,10 @@ class Panel:
     """
     3 Channel (RGB) Panel.
     """
-
-    r = DmxByte()
-    g = DmxByte()
-    b = DmxByte()
+    if SAFEVALUES:
+        r = DmxByte()
+        g = DmxByte()
+        b = DmxByte()
 
     def __init__(
         self, name: str, channel: int, position: tuple[float, float], is_vertical: bool
@@ -81,6 +82,11 @@ class Panel:
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
+        if not SAFEVALUES:
+            self.r = 0
+            self.g = 0
+            self.b = 0
+        
         self.name = name
         self.channel = channel
         self.position = position
@@ -106,15 +112,22 @@ class Overhead:
     4 Channel Overhead lamp.
     """
 
-    r = DmxByte()
-    g = DmxByte()
-    b = DmxByte()
-    brightness_strobe = LightStateField()
+    if SAFEVALUES:
+        r = DmxByte()
+        g = DmxByte()
+        b = DmxByte()
+        brightness_strobe = LightStateField()
 
     def __init__(self, channel: int):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 509.")
 
+        if not SAFEVALUES:
+            self.r = 0
+            self.g = 0
+            self.b = 0
+            self.brightness_strobe = LightState.brightness(0)
+        
         self.channel = channel
 
     def reset(self):
@@ -124,10 +137,11 @@ class Overhead:
         if brightness_strobe is None:  # defualt value
             brightness_strobe = LightState.brightness(255)
 
-        self.r = r
-        self.g = g
-        self.b = b
-        self.brightness_strobe = brightness_strobe
+        if not SAFEVALUES:
+            self.r = r
+            self.g = g
+            self.b = b
+            self.brightness_strobe = brightness_strobe
 
     def _apply(self, dmx_data: list[int]):
         """Called when creating dmx packet"""
@@ -154,23 +168,38 @@ class MovingHead:
     Moving head in 9 channel mode.
     """
 
-    r = DmxByte()
-    g = DmxByte()
-    b = DmxByte()
-    w = DmxByte()
-    brightness_strobe = LightStateField()
-    pan = DmxByte()
-    """
-        0 = left
-        255 = right (1.5 rotations)
-    """
-    tilt = DmxByte()
-    speed = DmxByte()
+    if SAFEVALUES:
+        r = DmxByte()
+        g = DmxByte()
+        b = DmxByte()
+        w = DmxByte()
+        brightness_strobe = LightStateField()
+        pan = DmxByte()
+        """
+            0 = left
+            255 = right (1.5 rotations)
+        """
+        tilt = DmxByte()
+        speed = DmxByte()
 
     def __init__(self, channel: int):
         if not (1 <= channel <= 503):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
+        if not SAFEVALUES:
+            self.r = 0
+            self.g = 0
+            self.b = 0
+            self.w = 0
+            self.brightness_strobe = LightState.brightness(0)
+            self.pan = 0
+            """
+                0 = left
+                255 = right (1.5 rotations)
+            """
+            self.tilt = 0
+            self.speed = 0
+        
         self.channel = channel
         self.reset()
 
@@ -345,6 +374,19 @@ class LightConfig:
         self.panels = _panels()
         self.overheads = _overheads()
         self.moving_heads = _moving_heads()
+
+    def copy(self) -> "LightConfig":
+        new = LightConfig()
+        for newp, selfp in zip(new.panels, self.panels):
+            newp.setLight(selfp.r, selfp.g, selfp.b)
+
+        for newo, selfo in zip(new.overheads, self.overheads):
+            newo.setLight(selfo.r, selfo.g, selfo.b, selfo.brightness_strobe)
+
+        for newm, selfm in zip(new.moving_heads, self.moving_heads):
+            newm.setLight(selfm.r, selfm.g, selfm.b, selfm.w, selfm.brightness_strobe)
+
+        return new
 
     def reset(self):
         """resets all lights to default state"""
