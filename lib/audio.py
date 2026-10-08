@@ -10,17 +10,14 @@ import soundfile as sf
 from lib.frame_context import FrameContext
 
 _current_stream = None
-
-inputdevind = None
 blocksize = 1024
-sampling_rate = None
 
 
 def select_device(
     device_name: str = "Razer Seiren Mini", auto: bool = False, print_info: bool = True
-):
+) -> int:
     """Selects an input device, falling back to defaults or auto-selection."""
-    global inputdevind, sampling_rate
+    global sampling_rate
 
     try:
         inputdev = sd.query_devices(device_name)  # default device takes priority
@@ -56,9 +53,11 @@ def select_device(
     if channels == 0:
         raise ValueError("Max possible channel count 0 :(")
 
+    return inputdevind
 
 def bind(
     callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None],
+    device: int | None = None,
 ) -> tuple[Callable[[], None], Callable[[], None]]:
     """Binds a callback to a new live audio input stream.
 
@@ -72,8 +71,8 @@ def bind(
             "Cannot bind a new stream: the previous audio stream is still running."
         )
 
-    if inputdevind is None:
-        select_device(auto=True)
+    if device is None:
+        device = select_device(auto=True)
 
     def stream_callback(indata, frames, time_info, status):
         if status:
@@ -86,7 +85,7 @@ def bind(
         callback(context)
 
     _current_stream = sd.InputStream(
-        device=inputdevind,
+        device=device,
         blocksize=blocksize,
         channels=1,
         samplerate=sampling_rate,
