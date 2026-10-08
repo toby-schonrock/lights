@@ -81,7 +81,7 @@ class Overlay(ABC):
 
     def __init__(self, disabled: bool = False):
         super().__init__()
-        self.disabled = True
+        self.disabled = disabled
 
     @abstractmethod
     def apply(self, context: FrameContext) -> FrameContext:

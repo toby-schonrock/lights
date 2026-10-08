@@ -35,6 +35,7 @@ class ArionScene(Scene):
 
 class DimmerOverlay(Overlay):
     def __init__(self):
+        super().__init__()
         self.brightness = 255
 
     def apply(self, context: FrameContext) -> FrameContext:
@@ -92,6 +93,7 @@ class PanelCircle(Overlay):
     """
     ORDER : typing.ClassVar = [("d", "m"), ("c", "n"), ("b", "o"), ("a","p"), ("g","v"), ("h","u"), ("i","t"), ("f","q")]
     def __init__(self, freq = 1, base_mult = 0.75, high_mult = 1):
+        super().__init__()
         self.start_time = None
         self.freq = freq
         self.base_mult = base_mult
@@ -123,12 +125,13 @@ class PanelCircle(Overlay):
 
 
 class PanelWave(Overlay):
+    """
+    Dims the panels with a sin.
+    Freq is for a whole cycle.
+    Angle is in degrees. 0 is forwards. 90 downwards
+    """
     def __init__(self, freq=1.0, angle=0.0, width=1.0, min_mult=0.75, max_mult=1.0):
-        """
-        Dims the panels with a sin.
-        Freq is for a whole cycle.
-        Angle is in degrees. 0 is forwards. 90 downwards
-        """
+        super().__init__()
         self.start_time = None
         self.freq = freq
         self.angle = angle
