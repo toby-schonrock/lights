@@ -79,6 +79,10 @@ class SceneConfig:
 class Overlay(ABC):
     """Abstract base class for an overlay modifying light values."""
 
+    def __init__(self, disabled: bool = False):
+        super().__init__()
+        self.disabled = True
+
     @abstractmethod
     def apply(self, context: FrameContext) -> FrameContext:
         pass
@@ -166,7 +170,8 @@ class Scene(ABC):
 
         current_context = deepcopy(context)
         for overlay in self.overlays:
-            current_context = overlay.apply(current_context)
+            if not overlay.disabled:
+                current_context = overlay.apply(current_context)
 
         return current_context.lights
 
