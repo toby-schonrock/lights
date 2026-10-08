@@ -9,12 +9,15 @@ import soundfile as sf
 from lib.frame_context import FrameContext
 
 _current_stream = None
+
 inputdevind = None
 blocksize = 1024
 samplingrate = None
-timestamp = None
 
-def select_device(device_name: str = "Razer Seiren Mini", auto: bool = False, print_info: bool = True):
+
+def select_device(
+    device_name: str = "Razer Seiren Mini", auto: bool = False, print_info: bool = True
+):
     """Selects an input device, falling back to defaults or auto-selection."""
     global inputdevind, samplingrate
 
@@ -32,9 +35,9 @@ def select_device(device_name: str = "Razer Seiren Mini", auto: bool = False, pr
             except ValueError:
                 inputdev = sd.query_devices(int(inp))
 
-    inputdevind = inputdev['index']
-    samplingrate = inputdev['default_samplerate']
-    channels = inputdev['max_input_channels']
+    inputdevind = inputdev["index"]
+    samplingrate = inputdev["default_samplerate"]
+    channels = inputdev["max_input_channels"]
 
     if print_info:
         print("Input device:")
@@ -44,24 +47,29 @@ def select_device(device_name: str = "Razer Seiren Mini", auto: bool = False, pr
         print(f"  SampleRate {samplingrate}")
         print(f"  UpdateRate {samplingrate / blocksize} hz")
         print(f"  Channels   {channels}")
-        if "hw" not in inputdev['name']:
+        if "hw" not in inputdev["name"]:
             print('WARNING could not find "hw" in device name')
-            print('This could be a sign of a virtual device')
-            print('This may introduce a lot of lag')
+            print("This could be a sign of a virtual device")
+            print("This may introduce a lot of lag")
 
     if channels == 0:
         raise ValueError("Max possible channel count 0 :(")
 
-def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> tuple[Callable[[], None], Callable[[], None]]:
+
+def bind(
+    callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None],
+) -> tuple[Callable[[], None], Callable[[], None]]:
     """Binds a callback to a new live audio input stream.
-    
+
     Raises RuntimeError if a stream is already active.
     Returns a stop function to halt and clean up the stream.
     """
     global _current_stream
 
     if _current_stream is not None and _current_stream.active:
-        raise RuntimeError("Cannot bind a new stream: the previous audio stream is still running.")
+        raise RuntimeError(
+            "Cannot bind a new stream: the previous audio stream is still running."
+        )
 
     if inputdevind is None:
         select_device(auto=True)
@@ -81,7 +89,7 @@ def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> 
         channels=1,
         samplerate=samplingrate,
         latency=None,
-        callback=stream_callback
+        callback=stream_callback,
     )
     _current_stream.start()
     print("Audio input stream started.")
@@ -96,60 +104,91 @@ def bind(callback: Callable[[np.ndarray, int, Any, sd.CallbackFlags], None]) -> 
 
     return _current_stream.start, stop_stream
 
+
+fileblockdelay: int = -3
+"""
++ means playback delayed
+- means lights delayed
+"""
+_delay_buffer = None
+_buffer_pos = None
+timestamp = None
+
+
 def bind_file(
-    filepath: str, 
-    callback: Callable[[FrameContext], None], 
-    loop: bool = False, 
-    speaker_output: bool = True
+    filepath: str,
+    callback: Callable[[FrameContext], None],
+    loop: bool = False,
+    speaker_output: bool = True,
 ) -> tuple[Callable[[], None], Callable[[], None]]:
-    """Plays an audio file, optionally streams data to speakers, and calls 
+    """Plays an audio file, optionally streams data to speakers, and calls
     the provided callback with frame context.
-    
+
     Raises RuntimeError if a stream is already active.
     Returns a stop function to halt and clean up playback.
     """
-    global _current_stream, samplingrate, timestamp
+    global _current_stream, samplingrate, timestamp, _delay_buffer, _buffer_pos
 
     if _current_stream is not None and _current_stream.active:
-        raise RuntimeError("Cannot bind a new stream: the previous audio stream is still running.")
+        raise RuntimeError(
+            "Cannot bind a new stream: the previous audio stream is still running."
+        )
 
     # Open the audio file
     f = sf.SoundFile(filepath)
     samplingrate = f.samplerate
     channels = f.channels
     timestamp = 0
-    print(samplingrate)
-    print(blocksize)
+    _delay_buffer = np.zeros((abs(int(fileblockdelay)), blocksize, channels))
+    _buffer_pos = 0
 
     print(f"Opening audio file: {filepath} ({samplingrate} Hz, {channels} channels)")
 
-    def file_callback(outdata, frames, time_info, status):
-        global timestamp
+    def file_callback(outdata, frames, _, status):
+        global timestamp, _delay_buffer, _buffer_pos
 
         if status:
             print(status, file=sys.stderr)
-        
-        data = f.read(frames, dtype='float32', always_2d=True)
-        
+
+        data = f.read(frames, dtype="float32", always_2d=True)
+
         # Handle file exhaustion and looping
         if len(data) < frames:
             if loop:
                 f.seek(0)
                 remaining = frames - len(data)
-                data_extra = f.read(remaining, dtype='float32', always_2d=True)
+                data_extra = f.read(remaining, dtype="float32", always_2d=True)
                 data = np.concatenate((data, data_extra), axis=0)
             else:
                 # Pad the remainder with zeros
                 data = np.pad(data, ((0, frames - len(data)), (0, 0)))
 
+        if fileblockdelay:
+            if abs(int(fileblockdelay)) != np.size(_delay_buffer, 0):
+                _delay_buffer = np.resize(
+                    _delay_buffer, (abs(int(fileblockdelay)), blocksize, channels)
+                )
+
+            _buffer_pos = _buffer_pos % abs(int(fileblockdelay))
+            buffered = _delay_buffer[_buffer_pos].copy()
+            _delay_buffer[_buffer_pos] = data
+            _buffer_pos += 1
+
         # Stream to speakers if enabled, otherwise mute output buffer
         if speaker_output:
-            outdata[:] = data
+            if fileblockdelay > 0:
+                outdata[:] = buffered
+            else:
+                outdata[:] = data
         else:
             outdata.fill(0)
 
         context = FrameContext()
-        context.audio_data = data[:, 0]
+        if fileblockdelay < 0:
+            context.audio_data = buffered[:, 0]
+        else:
+            context.audio_data = data[:, 0]
+
         context.timestamp = timestamp
 
         timestamp += len(data) / samplingrate
@@ -161,7 +200,7 @@ def bind_file(
         samplerate=samplingrate,
         blocksize=blocksize,
         channels=channels,
-        callback=file_callback
+        callback=file_callback,
     )
     _current_stream.start()
     print("Audio file playback stream started.")
