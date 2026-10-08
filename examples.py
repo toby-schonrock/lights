@@ -166,8 +166,8 @@ if __name__ == "__main__":
 
     # scene = ArionScene(SceneConfig.poll(), [PanelWave(3, 0, 0.8, 0.6)])
     # scene = RainbowsPanel(SceneConfig.poll(), [PanelCircle()])
-    # scene = ArionScene(SceneConfig.mic(), [VolumeDimmer()])
-    scene = ArionScene(SceneConfig.playback("audio_files/click_80bpm.mp3"), [VolumeDimmer()])
+    scene = ArionScene(SceneConfig.mic(), [VolumeDimmer()])
+    # scene = ArionScene(SceneConfig.playback("audio_files/click_80bpm.mp3"), [VolumeDimmer()])
     scene.start()
     scene.start_dispatcher(rig.callback)
 

@@ -13,14 +13,14 @@ _current_stream = None
 
 inputdevind = None
 blocksize = 1024
-samplingrate = None
+sampling_rate = None
 
 
 def select_device(
     device_name: str = "Razer Seiren Mini", auto: bool = False, print_info: bool = True
 ):
     """Selects an input device, falling back to defaults or auto-selection."""
-    global inputdevind, samplingrate
+    global inputdevind, sampling_rate
 
     try:
         inputdev = sd.query_devices(device_name)  # default device takes priority
@@ -37,7 +37,7 @@ def select_device(
                 inputdev = sd.query_devices(int(inp))
 
     inputdevind = inputdev["index"]
-    samplingrate = inputdev["default_samplerate"]
+    sampling_rate = inputdev["default_samplerate"]
     channels = inputdev["max_input_channels"]
 
     if print_info:
@@ -45,8 +45,8 @@ def select_device(
         print(f"  Name       {inputdev['name']}")
         print(f"  LowLatency {inputdev['default_low_input_latency'] * 1000} ms")
         print(f"  HighLatency {inputdev['default_high_input_latency'] * 1000} ms")
-        print(f"  SampleRate {samplingrate}")
-        print(f"  UpdateRate {samplingrate / blocksize} hz")
+        print(f"  SampleRate {sampling_rate}")
+        print(f"  UpdateRate {sampling_rate / blocksize} hz")
         print(f"  Channels   {channels}")
         if "hw" not in inputdev["name"]:
             print('WARNING could not find "hw" in device name')
@@ -81,6 +81,7 @@ def bind(
 
         context = FrameContext()
         context.audio_data = indata[:, 0]
+        context.sampling_rate = sampling_rate
 
         callback(context)
 
@@ -88,7 +89,7 @@ def bind(
         device=inputdevind,
         blocksize=blocksize,
         channels=1,
-        samplerate=samplingrate,
+        samplerate=sampling_rate,
         latency=None,
         callback=stream_callback,
     )
@@ -128,22 +129,17 @@ def bind_file(
     Raises RuntimeError if a stream is already active.
     Returns a stop function to halt and clean up playback.
     """
-    global _current_stream, samplingrate, timestamp, _delay_buffer, _buffer_pos
-
-    if _current_stream is not None and _current_stream.active:
-        raise RuntimeError(
-            "Cannot bind a new stream: the previous audio stream is still running."
-        )
+    global timestamp, _delay_buffer, _buffer_pos
 
     # Open the audio file
-    f = sf.SoundFile(filepath)
-    samplingrate = f.samplerate
-    channels = f.channels
+    file = sf.SoundFile(filepath)
+    sampling_rate = file.samplerate
+    channels = file.channels
     timestamp = 0
     _delay_buffer = np.zeros((abs(int(fileblockdelay)), blocksize, channels))
     _buffer_pos = 0
 
-    print(f"Opening audio file: {filepath} ({samplingrate} Hz, {channels} channels)")
+    print(f"Opening audio file: {filepath} ({sampling_rate} Hz, {channels} channels)")
 
     def file_callback(outdata, frames, _, status):
         global timestamp, _delay_buffer, _buffer_pos
@@ -152,14 +148,14 @@ def bind_file(
         if status:
             print(status, file=sys.stderr)
 
-        data = f.read(frames, dtype="float32", always_2d=True)
+        data = file.read(frames, dtype="float32", always_2d=True)
 
         # Handle file exhaustion and looping
         if len(data) < frames:
             if loop:
-                f.seek(0)
+                file.seek(0)
                 remaining = frames - len(data)
-                data_extra = f.read(remaining, dtype="float32", always_2d=True)
+                data_extra = file.read(remaining, dtype="float32", always_2d=True)
                 data = np.concatenate((data, data_extra), axis=0)
             else:
                 # Pad the remainder with zeros
@@ -192,36 +188,35 @@ def bind_file(
             context.audio_data = data[:, 0]
 
         context.timestamp = timestamp
+        context.sampling_rate = sampling_rate
 
-        timestamp += len(data) / samplingrate
+        timestamp += len(data) / sampling_rate
 
         # Trigger the user callback with the context
         callback(context)
 
         # processing_time should not exceed 25% of the available time
         processing_time = time.monotonic() - start
-        available = blocksize / samplingrate
+        available = blocksize / sampling_rate
         if processing_time > 0.5 * available:
             print("Processing time too slow!")
             print(f"{processing_time * 1000}ms used")
             print(f"{available * 1000}ms available")
 
-    _current_stream = sd.OutputStream(
-        samplerate=samplingrate,
+    stream = sd.OutputStream(
+        samplerate=sampling_rate,
         blocksize=blocksize,
         channels=channels,
         callback=file_callback,
     )
-    _current_stream.start()
+    stream.start()
     print("Audio file playback stream started.")
 
     def stop_stream():
-        global _current_stream
-        f.close()
-        if _current_stream is not None:
-            _current_stream.stop()
-            _current_stream.close()
-            _current_stream = None
+        file.close()
+        if stream is not None:
+            stream.stop()
+            stream.close()
             print("Audio file stream stopped.")
 
     return stop_stream
