@@ -75,7 +75,9 @@ class Panel:
     g = DmxByte()
     b = DmxByte()
 
-    def __init__(self, name: str, channel: int, position: tuple[float, float], is_vertical: bool):
+    def __init__(
+        self, name: str, channel: int, position: tuple[float, float], is_vertical: bool
+    ):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
@@ -93,7 +95,7 @@ class Panel:
         self.b = b
 
     def _apply(self, dmx_data: list[int]):
-        '''Called when creating dmx packet'''
+        """Called when creating dmx packet"""
         dmx_data[self.channel - 1] = self.r
         dmx_data[self.channel + 0] = self.g
         dmx_data[self.channel + 1] = self.b
@@ -101,7 +103,7 @@ class Panel:
 
 class Overhead:
     """
-    4 Channel Overhead lamp. 
+    4 Channel Overhead lamp.
     """
 
     r = DmxByte()
@@ -128,7 +130,7 @@ class Overhead:
         self.brightness_strobe = brightness_strobe
 
     def _apply(self, dmx_data: list[int]):
-        '''Called when creating dmx packet'''
+        """Called when creating dmx packet"""
         dmx_data[self.channel - 1] = self.r
         dmx_data[self.channel + 0] = self.g
         dmx_data[self.channel + 1] = self.b
@@ -158,10 +160,10 @@ class MovingHead:
     w = DmxByte()
     brightness_strobe = LightStateField()
     pan = DmxByte()
-    '''
+    """
         0 = left
         255 = right (1.5 rotations)
-    '''
+    """
     tilt = DmxByte()
     speed = DmxByte()
 
@@ -177,7 +179,9 @@ class MovingHead:
         self.setDir(42, 15)
         self.speed = 150
 
-    def setLight(self, r: int, g: int, b: int, w: int = 0, brightness_strobe: LightState = None):
+    def setLight(
+        self, r: int, g: int, b: int, w: int = 0, brightness_strobe: LightState = None
+    ):
         if brightness_strobe is None:  # defualt value
             brightness_strobe = LightState.brightness(255)
 
@@ -192,7 +196,7 @@ class MovingHead:
         self.tilt = tilt
 
     def _apply(self, dmx_data: list[int]):
-        '''Called when creating dmx packet'''
+        """Called when creating dmx packet"""
         dmx_data[self.channel - 1] = self.pan
         dmx_data[self.channel + 0] = self.tilt
 
@@ -239,7 +243,27 @@ class _panels:
         self.v = Panel("v", 183, (1.14, 1.06), False)
         # right side
 
-        self._ordered = [self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h, self.i, self.m, self.n, self.o, self.p, self.q, self.r, self.s, self.t, self.u, self.v]
+        self._ordered = [
+            self.a,
+            self.b,
+            self.c,
+            self.d,
+            self.e,
+            self.f,
+            self.g,
+            self.h,
+            self.i,
+            self.m,
+            self.n,
+            self.o,
+            self.p,
+            self.q,
+            self.r,
+            self.s,
+            self.t,
+            self.u,
+            self.v,
+        ]
 
     def __iter__(self) -> Iterator[Panel]:
         return iter(self._ordered)
@@ -323,7 +347,7 @@ class LightConfig:
         self.moving_heads = _moving_heads()
 
     def reset(self):
-        '''resets all lights to default state'''
+        """resets all lights to default state"""
         self.panels.reset()
         self.overheads.reset()
         self.moving_heads.reset()
