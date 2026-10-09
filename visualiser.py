@@ -39,6 +39,8 @@ class VisualiserDimmerOverlay(Overlay):
 
         self.scaling = 5
         self.max_value_clamp = 1.5
+        self.base_mult = 0.4
+        self.high_mult = 1.0
 
         # below values initialised in apply to ensure audio devce information is present
         self.frequcey_values = None
@@ -91,7 +93,7 @@ class VisualiserDimmerOverlay(Overlay):
         self.visuliser_values = self.maxsmoothing(self.visuliser_values, newvalues)
 
         for i, grp in enumerate(self.groups):
-            scale = 0.3 + 0.7 * grp.scale * self.visuliser_values[i]
+            scale = self.base_mult + (self.high_mult - self.base_mult) * grp.scale * self.visuliser_values[i]
             if i != 0:  # side chain prevents kick overpowering
                 scale -= 0.25 * self.visuliser_values[0]
             for panelname in grp.panel_names:

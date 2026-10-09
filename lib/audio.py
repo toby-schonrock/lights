@@ -106,7 +106,7 @@ def bind(
     return _current_stream.start, stop_stream
 
 
-playback_frame_delay: int = -5 # can be negative
+playback_frame_delay: int = -8 # can be negative
 
 def bind_file(
     filepath: str,

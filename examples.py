@@ -157,14 +157,16 @@ class PanelWave(Overlay):
 
         return context
 
-VIRTUAL = False
+VIRTUAL = True
 if __name__ == "__main__":
     if VIRTUAL:
         from lib.virtualrig import VirtualRig
         rig = VirtualRig()
+        callback = rig.callback
     else:
         from lib.artnetcontroller import ArtNetController
         controller = ArtNetController("192.168.1.169")
+        callback = lambda lights: controller.send_packet(lights.get_channel_values())
 
     from lib.scenes import Scene
 
@@ -174,11 +176,6 @@ if __name__ == "__main__":
     # scene = ArionScene(SceneConfig.mic(), [VolumeDimmer()])
     scene = ArionScene(SceneConfig.playback("audio_files/click_80bpm.mp3"), [VolumeDimmer()])
     scene.start()
-
-    if VIRTUAL:
-        callback = rig.callback
-    else:
-        callback = lambda lights: controller.send_packet(lights.get_channel_values())
 
     scene.start_dispatcher(callback)
 
