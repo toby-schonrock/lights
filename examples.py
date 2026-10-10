@@ -157,7 +157,7 @@ class PanelWave(Overlay):
 
         return context
 
-VIRTUAL = True
+VIRTUAL = False
 if __name__ == "__main__":
     if VIRTUAL:
         from lib.virtualrig import VirtualRig
@@ -170,11 +170,12 @@ if __name__ == "__main__":
 
     from lib.scenes import Scene
 
-
-    # scene = ArionScene(SceneConfig.poll(), [PanelWave(3, -45, 0.8, 0.6)])
+    overlay = DimmerOverlay()
+    overlay.brightness = 180
+    scene = RainbowsPanel(SceneConfig.poll(), [PanelWave(3, -45, 0.8, 0.6), overlay])
     # scene = RainbowsPanel(SceneConfig.poll(), [PanelCircle()])
     # scene = ArionScene(SceneConfig.mic(), [VolumeDimmer()])
-    scene = ArionScene(SceneConfig.playback("audio_files/click_80bpm.mp3"), [VolumeDimmer()])
+    # scene = ArionScene(SceneConfig.playback("audio_files/click_80bpm.mp3"), [VolumeDimmer()])
     scene.start()
 
     scene.start_dispatcher(callback)
