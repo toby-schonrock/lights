@@ -165,7 +165,7 @@ class Scene(ABC):
 
         current_context = FrameContext(
             self.lights.copy(),
-            context.audio_data.copy(),
+            context.audio_data.copy() if context.audio_data is not None else None,
             context.timestamp,
             context.sampling_rate,
         )
