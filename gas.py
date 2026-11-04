@@ -9,6 +9,7 @@ from collections.abc import Callable
 import numpy as np
 
 from examples import PanelCircle
+from lib.arion_lights import LightState
 from lib.frame_context import FrameContext
 from lib.scenes import Overlay, Scene, SceneConfig
 
@@ -31,18 +32,24 @@ def gasStart(scene: Scene):
     for panel in scene.lights.panels:
         if panel.name >= "m":
             if panel.position[1] < 1.2:
-                panel.setLight(255,50,255)
+                panel.setLight(255, 50, 255)
             elif panel.position[1] < 2:
-                panel.setLight(255,0,100)
+                panel.setLight(255, 0, 100)
             else:
-                panel.setLight(255,0,0)
+                panel.setLight(255, 0, 0)
         else:
             if panel.position[1] < 1.2:
-                panel.setLight(100,0,255)
+                panel.setLight(100, 0, 255)
             elif panel.position[1] < 2:
-                panel.setLight(50,0,255)
+                panel.setLight(50, 0, 255)
             else:
                 panel.setLight(0, 0, 255)
+
+    scene.lights.overheads.far_left.setLight(100, 0, 255, LightState.brightness(255))
+    scene.lights.overheads.mid_left.setLight(50, 0, 255, LightState.brightness(255))
+    scene.lights.overheads.mid_right.setLight(255, 0, 100, LightState.brightness(255))
+    scene.lights.overheads.far_right.setLight(255, 50, 255, LightState.brightness(255))
+
 
 def gasRender(scene: Scene):
     return
@@ -74,20 +81,22 @@ def normalRender(scene: Scene):
 
 normal = Section("normal", normalStart, normalRender)
 
+
 def pauseStart(scene: Scene):
     scene.overlays[0].disabled = True
     scene.overlays[1].disabled = False
     scene.overlays[1].freq = 0
     scene.overlays[1].base_mult = 0.2
 
+
 pause = Section("pause", pauseStart, normalRender)
 
 playback = [
     (None, 0.0),
-    (gas, 0.4), 
-    (normal, 3.2), 
+    (gas, 0.4),
+    (normal, 3.2),
     (pause, 14.4),
-    (normal, 19.7), 
+    (normal, 19.7),
     (gas, 28.1),
     (normal, 30.9),
     (pause, 53.4),
@@ -101,19 +110,25 @@ playback = [
     (normal, 98.2),
     (gas, 106.6),
     (normal, 109.5),
+    (gas, 137.6),
+    (normal, 148.7),
 ]
+
 
 class FlippingHitOverlay(Overlay):
     """
     Set all panels brightness based on the average audio amplitude and flips side past threshold
     """
-    def __init__(self, high_mult, base_mult, threshold, flipcooldown = 0.3, disabled = False):
+
+    def __init__(
+        self, high_mult, base_mult, threshold, flipcooldown=0.3, disabled=False
+    ):
         super().__init__(disabled)
         self.high_mult = high_mult
         self.base_mult = base_mult
         self.threshold = threshold
         self.flipcooldown = flipcooldown
-        
+
         self.side = "Right"
         self.lastflip = -flipcooldown
         self.dropofffreq = 2
@@ -127,6 +142,9 @@ class FlippingHitOverlay(Overlay):
             raise RuntimeError(
                 "No audio data availabe. Do you have the correct scene type?"
             )
+
+        if timestamp < self.lastflip:
+            self.lastflip = -1
 
         time_since = timestamp - self.lastflip
         if time_since >= self.flipcooldown:
@@ -143,13 +161,21 @@ class FlippingHitOverlay(Overlay):
                 mult = hit
             else:
                 mult = self.base_mult
-            
+
             panel.r *= mult
             panel.g *= mult
             panel.b *= mult
-                
+
+        for overhead in lights.overheads:
+            if overhead.channel < 17:
+                mult = hit
+            else:
+                mult = self.base_mult
+
+            overhead.brightness_strobe = LightState.brightness(mult * 255)
 
         return context
+
 
 class Gas(Scene):
     def __init__(self, config, overlays=None):
@@ -165,24 +191,30 @@ class Gas(Scene):
             raise RuntimeError("Timestamp not available! Worng scene type?")
 
         next = self.sectionIdx + 1
-        if next == len(playback) and timestamp < playback[self.sectionIdx]:
-            self.sectionIdx = 0
-        elif next != len(playback) and playback[next][1] < timestamp:
+        if next == len(playback):  # if at end
+            if timestamp < playback[self.sectionIdx][1]:  # and time has gone backwards
+                self.sectionIdx = 0
+                print("Restarted")
+
+        elif timestamp > playback[next][1]:
             self.sectionIdx = next
             print("Started section:", playback[self.sectionIdx][0].name)
             playback[self.sectionIdx][0].start(self)
 
-    def run(self):
+        return
+
+    def on_start(self):
         while True:
             self.check_transitions()
             secton = playback[self.sectionIdx][0]
             if secton:
                 secton.render(self)
-            
+
             time.sleep(0.020)
 
 
 # from lib.virtualrig import VirtualRig
+
 # rig = VirtualRig()
 # callback = rig.callback
 
@@ -195,7 +227,7 @@ circle = PanelCircle(2.83, 0.5)
 
 scene = Gas(
     SceneConfig.playback("audio_files/song.mp3"),
-    [FlippingHitOverlay(1, 0.2, 0.2), circle], 
+    [FlippingHitOverlay(1, 0.2, 0.2), circle],
 )
 scene.start()
 scene.start_dispatcher(callback)

@@ -14,7 +14,7 @@ scene = Scene(TestScript(), [], lambda _: print("Data sent"), 999)
 
 print("Normal scene")
 
-scene.start()
+scene.on_start()
 time.sleep(2)
 scene.stop()
 time.sleep(2)

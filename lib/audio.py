@@ -124,7 +124,7 @@ def bind_file(
     data = np.pad(data, ((0, blocksize - (len(data) % blocksize)), (0,0)))
     assert len(data) % blocksize == 0
     channels = data.shape[1]
-    frame_idx = 0
+    frame_idx = int((0 * sampling_rate) / blocksize) * blocksize
     empty_frame = np.zeros((blocksize, channels))
 
     print(f"Read audio file: {filepath} ({sampling_rate} Hz, {channels} channels)")

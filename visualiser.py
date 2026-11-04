@@ -7,6 +7,7 @@ import numpy as np
 from examples import ArionScene
 from lib import audio
 from lib.arion_lights import LightConfig, Panel
+from lib.artnetcontroller import ArtNetController
 from lib.scenes import FrameContext, Overlay, SceneConfig
 from lib.virtualrig import VirtualRig
 
@@ -106,17 +107,17 @@ class VisualiserDimmerOverlay(Overlay):
 
 
 # if you run this file directly you get an example
-if __name__ == "__main__":
-    # controller = ArtNetController("192.168.1.169")
+if __name__ == "__main__": 
+    controller = ArtNetController("192.168.1.169")
 
     from lib import audio
 
     audio.select_device(auto=True)
 
     scene = ArionScene(SceneConfig.mic(), [VisualiserDimmerOverlay()])
-    scene.start()
-    rig = VirtualRig()
-    scene.start_dispatcher(rig.callback)
+    scene.on_start()
+    # rig = VirtualRig()
+    scene.start_dispatcher(lambda lights: controller.send_packet(lights.get_channel_values()))
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -211,6 +212,6 @@ if __name__ == "__main__":
 
         live_plot()
 
-    rig.run()
+    # rig.run()
 
     input("Press enter to close")

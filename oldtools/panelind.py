@@ -17,6 +17,6 @@ class ind(SceneScript):
 scene = Scene(ind(), [], lambda lights: controller.send_packet(lights.get_channel_values()))
 time.sleep(3)
 
-scene.start()
+scene.on_start()
 
 input()

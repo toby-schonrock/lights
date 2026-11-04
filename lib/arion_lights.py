@@ -141,11 +141,10 @@ class Overhead:
         if brightness_strobe is None:  # defualt value
             brightness_strobe = LightState.brightness(255)
 
-        if not SAFEVALUES:
-            self.r = r
-            self.g = g
-            self.b = b
-            self.brightness_strobe = brightness_strobe
+        self.r = r
+        self.g = g
+        self.b = b
+        self.brightness_strobe = brightness_strobe
 
     def _apply(self, dmx_data: list[int]):
         """Called when creating dmx packet"""

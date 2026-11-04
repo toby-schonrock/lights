@@ -9,7 +9,7 @@ from lib.scenes import FrameContext, Overlay, Scene, SceneConfig
 
 
 class RainbowsPanel(Scene):
-    def run(self):
+    def on_start(self):
         lights = self.lights
         while True:
             for i in range(360):
@@ -18,11 +18,16 @@ class RainbowsPanel(Scene):
                     g = (math.sin(math.radians(i + 120 + panel.position[0] * 15)) + 1) / 2
                     b = (math.sin(math.radians(i + 240 + panel.position[0] * 15)) + 1) / 2
                     panel.setLight(r * 255, g * 255, b * 255)
+                for overhead in lights.overheads:
+                    r = (math.sin(math.radians(i)) + 1) / 2
+                    g = (math.sin(math.radians(i + 120)) + 1) / 2
+                    b = (math.sin(math.radians(i + 240)) + 1) / 2
+                    overhead.setLight(r * 255, g * 255, b * 255, LightState.brightness(120))
                 time.sleep(0.020)
 
 
 class ArionScene(Scene):
-    def run(self):
+    def on_start(self):
         lights = self.lights
         for panel in lights.panels:
             if panel.position[1] < 1.2:
@@ -171,7 +176,7 @@ if __name__ == "__main__":
     from lib.scenes import Scene
 
     overlay = DimmerOverlay()
-    overlay.brightness = 180
+    overlay.brightness = 230
     scene = RainbowsPanel(SceneConfig.poll(), [PanelWave(3, -45, 0.8, 0.6), overlay])
     # scene = RainbowsPanel(SceneConfig.poll(), [PanelCircle()])
     # scene = ArionScene(SceneConfig.mic(), [VolumeDimmer()])

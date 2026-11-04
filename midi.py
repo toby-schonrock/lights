@@ -8,7 +8,7 @@ controller = ArtNetController("192.168.1.169")
 
 dimmer = DimmerOverlay()
 scene = Scene(RainbowsPanel(), [dimmer], lambda lights: controller.send_packet(lights.get_channel_values()))
-scene.start()
+scene.on_start()
 # scene = Scene(RainbowsPanel(), [dimmer], lambda lights: None)
 
 devname = "Akai LPD8 Wireless:Akai LPD8 Wireless MIDI 1 20:0"

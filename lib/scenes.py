@@ -108,11 +108,17 @@ class Scene(ABC):
         The LightConfig object storing the config used by the run function.
         """
 
-    @abstractmethod
-    def run(self):
+    def on_start(self):
         """
         Runs when the scene is active.
         """
+        return
+
+    def on_frame(self, context: FrameContext):
+        """
+        Runs when the scene is active.
+        """
+        return context
 
     def _start_poll_dispatcher(self, callback: Callable[[LightConfig], None]):
         dp_stop_event = threading.Event()
@@ -162,13 +168,13 @@ class Scene(ABC):
     def _render(self, context: FrameContext) -> LightConfig:
         """Renders the current light values without starting any threads."""
         self.context = context
-
         current_context = FrameContext(
             self.lights.copy(),
             context.audio_data.copy() if context.audio_data is not None else None,
             context.timestamp,
             context.sampling_rate,
         )
+        current_context = self.on_frame(current_context)
         for overlay in self.overlays:
             if not overlay.disabled:
                 current_context = overlay.apply(current_context)
@@ -180,12 +186,12 @@ class Scene(ABC):
 
         def run_user_script():
             try:
-                self.run()
+                self.on_start()
                 while True:
                     time.sleep(1)
             except SystemExit:
                 # print("Background scene was forcibly terminated.")
-                pass
+                raise
             finally:
                 self.stop()
 
