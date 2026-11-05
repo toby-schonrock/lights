@@ -2,120 +2,15 @@
 # Letting this run for extended periods of time can lead to alcohol poisoning.
 # The creators of this program beer no responsibility for the consequences.
 
-import math
-import time
-from collections.abc import Callable
-
 import numpy as np
 
-from examples import PanelCircle
-from lib.arion_lights import LightState
+from examples import PanelCircle, RainbowPanels
+from lib.arion_lights import LightConfig, LightState
 from lib.frame_context import FrameContext
-from lib.scenes import Overlay, Scene, SceneConfig
+from lib.scenes import Layer, Scene, SceneConfig
 
 
-class Section:
-    def __init__(
-        self,
-        name: str,
-        start: Callable[[Scene], None],
-        render: Callable[[Scene], None],
-    ):
-        self.name = name
-        self.start = start
-        self.render = render
-
-
-def gasStart(scene: Scene):
-    scene.overlays[0].disabled = False
-    scene.overlays[1].disabled = True
-    for panel in scene.lights.panels:
-        if panel.name >= "m":
-            if panel.position[1] < 1.2:
-                panel.setLight(255, 50, 255)
-            elif panel.position[1] < 2:
-                panel.setLight(255, 0, 100)
-            else:
-                panel.setLight(255, 0, 0)
-        else:
-            if panel.position[1] < 1.2:
-                panel.setLight(100, 0, 255)
-            elif panel.position[1] < 2:
-                panel.setLight(50, 0, 255)
-            else:
-                panel.setLight(0, 0, 255)
-
-    scene.lights.overheads.far_left.setLight(100, 0, 255, LightState.brightness(255))
-    scene.lights.overheads.mid_left.setLight(50, 0, 255, LightState.brightness(255))
-    scene.lights.overheads.mid_right.setLight(255, 0, 100, LightState.brightness(255))
-    scene.lights.overheads.far_right.setLight(255, 50, 255, LightState.brightness(255))
-
-
-def gasRender(scene: Scene):
-    return
-
-
-gas = Section("gas", gasStart, gasRender)
-
-
-def normalStart(scene: Scene):
-    scene.overlays[0].disabled = True
-    scene.overlays[1].disabled = False
-    scene.overlays[1].freq = 2.83
-    scene.overlays[1].base_mult = 0.5
-
-
-i = 0
-
-
-def normalRender(scene: Scene):
-    global i
-    i = (i + 1) % 360
-    # rainbow code
-    for panel in scene.lights.panels:
-        r = (math.sin(math.radians(i + panel.position[0] * 15)) + 1) / 2
-        g = (math.sin(math.radians(i + 120 + panel.position[0] * 15)) + 1) / 2
-        b = (math.sin(math.radians(i + 240 + panel.position[0] * 15)) + 1) / 2
-        panel.setLight(r * 255, g * 255, b * 255)
-
-
-normal = Section("normal", normalStart, normalRender)
-
-
-def pauseStart(scene: Scene):
-    scene.overlays[0].disabled = True
-    scene.overlays[1].disabled = False
-    scene.overlays[1].freq = 0
-    scene.overlays[1].base_mult = 0.2
-
-
-pause = Section("pause", pauseStart, normalRender)
-
-playback = [
-    (None, 0.0),
-    (gas, 0.4),
-    (normal, 3.2),
-    (pause, 14.4),
-    (normal, 19.7),
-    (gas, 28.1),
-    (normal, 30.9),
-    (pause, 53.4),
-    (normal, 56.2),
-    (gas, 64.5),
-    (normal, 67.4),
-    (pause, 78.5),
-    (gas, 81.4),
-    (normal, 84.2),
-    (pause, 95.5),
-    (normal, 98.2),
-    (gas, 106.6),
-    (normal, 109.5),
-    (gas, 137.6),
-    (normal, 148.7),
-]
-
-
-class FlippingHitOverlay(Overlay):
+class FlippingHitOverlay(Layer):
     """
     Set all panels brightness based on the average audio amplitude and flips side past threshold
     """
@@ -177,60 +72,117 @@ class FlippingHitOverlay(Overlay):
         return context
 
 
-class Gas(Scene):
-    def __init__(self, config, overlays=None):
-        super().__init__(config, overlays)
+rainbow_layer = RainbowPanels()
+hit_layer = FlippingHitOverlay(1, 0.2, 0.2)
+circle_layer = PanelCircle(2.83, 0.5)
+
+layers = [rainbow_layer, circle_layer, hit_layer]
+
+
+class Section:
+    def __init__(
+        self,
+        name: str,
+        layers: list[Layer],
+        background: LightConfig,
+    ):
+        self.name = name
+        self.layers = layers
+        self.background = background
+
+
+gas_background = LightConfig()
+for panel in gas_background.panels:
+    if panel.name >= "m":
+        if panel.position[1] < 1.2:
+            panel.setLight(255, 50, 255)
+        elif panel.position[1] < 2:
+            panel.setLight(255, 0, 100)
+        else:
+            panel.setLight(255, 0, 0)
+    else:
+        if panel.position[1] < 1.2:
+            panel.setLight(100, 0, 255)
+        elif panel.position[1] < 2:
+            panel.setLight(50, 0, 255)
+        else:
+            panel.setLight(0, 0, 255)
+
+gas_background.overheads.far_left.setLight(100, 0, 255, LightState.brightness(255))
+gas_background.overheads.mid_left.setLight(50, 0, 255, LightState.brightness(255))
+gas_background.overheads.mid_right.setLight(255, 0, 100, LightState.brightness(255))
+gas_background.overheads.far_right.setLight(255, 50, 255, LightState.brightness(255))
+
+
+gas = Section("gas", [hit_layer], gas_background)
+normal = Section("normal", [RainbowPanels(), PanelCircle(2.8235, 0.5)], LightConfig())
+pause = Section("pause", [RainbowPanels(), PanelCircle(0.3529, 0.2)], LightConfig())
+
+playback = [
+    (None, 0.0),
+    (gas, 0.4),
+    (normal, 3.2),
+    (pause, 14.4),
+    (normal, 19.7),
+    (gas, 28.1),
+    (normal, 30.9),
+    (pause, 53.4),
+    (normal, 56.2),
+    (gas, 64.5),
+    (normal, 67.4),
+    (pause, 78.5),
+    (gas, 81.4),
+    (normal, 84.2),
+    (pause, 95.5),
+    (normal, 98.2),
+    (gas, 106.6),
+    (normal, 109.5),
+    (gas, 137.6),
+    (normal, 148.7),
+]
+
+
+class SectionedPlayback(Scene):
+    def __init__(self, config, section_list: list[tuple[Section | None, float]]):
+        super().__init__(config)
+
+        self.section_list = section_list
         self.sectionIdx: int = 0
 
-    def check_transitions(self):
-        if self.context is None:
-            return
-
-        timestamp = self.context.timestamp
+    def pre_render(self, context: FrameContext) -> FrameContext:
+        timestamp = context.timestamp
         if timestamp is None:
             raise RuntimeError("Timestamp not available! Worng scene type?")
 
         next = self.sectionIdx + 1
-        if next == len(playback):  # if at end
-            if timestamp < playback[self.sectionIdx][1]:  # and time has gone backwards
+        if next == len(self.section_list):  # if at end
+            if timestamp < self.section_list[self.sectionIdx][1]:
+                # time has gone backwards
                 self.sectionIdx = 0
                 print("Restarted")
 
-        elif timestamp > playback[next][1]:
+        elif timestamp > self.section_list[next][1]:
             self.sectionIdx = next
-            print("Started section:", playback[self.sectionIdx][0].name)
-            playback[self.sectionIdx][0].start(self)
-
-        return
-
-    def on_start(self):
-        while True:
-            self.check_transitions()
-            secton = playback[self.sectionIdx][0]
-            if secton:
-                secton.render(self)
-
-            time.sleep(0.020)
+            print("Started section:", self.section_list[self.sectionIdx][0].name)
+            section = self.section_list[self.sectionIdx][0]
+            self.background = section.background
+            self.layers = section.layers
 
 
-# from lib.virtualrig import VirtualRig
+from lib.virtualrig import VirtualRig
 
-# rig = VirtualRig()
-# callback = rig.callback
+rig = VirtualRig()
+callback = rig.callback
 
-from lib.artnetcontroller import ArtNetController
+# from lib.artnetcontroller import ArtNetController
 
-controller = ArtNetController("192.168.1.169")
-callback = lambda lights: controller.send_packet(lights.get_channel_values())
+# controller = ArtNetController("192.168.1.169")
+# callback = lambda lights: controller.send_packet(lights.get_channel_values())
 
 circle = PanelCircle(2.83, 0.5)
 
-scene = Gas(
-    SceneConfig.playback("audio_files/song.mp3"),
-    [FlippingHitOverlay(1, 0.2, 0.2), circle],
-)
-scene.start()
+scene = SectionedPlayback(SceneConfig.playback("audio_files/song.mp3"), playback)
 scene.start_dispatcher(callback)
 
-input()
-# rig.run()
+# input()
+rig.run()

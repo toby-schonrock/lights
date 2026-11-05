@@ -1,4 +1,3 @@
-import ctypes
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -9,32 +8,6 @@ from pathlib import Path
 from lib import audio
 from lib.arion_lights import LightConfig
 from lib.frame_context import FrameContext
-
-
-def _force_kill_thread(thread: threading.Thread):
-    """
-    Forcibly injects a SystemExit exception into a thread to kill it immediately.
-    This function is hella bad practice but it is used to allow users to write scene scripts that can be stopped
-    without requiring them to implement their own stop logic.
-    """
-    if not thread or not thread.is_alive():
-        return
-
-    thread_id = thread.ident
-    if thread_id is None:
-        return
-
-    # Call CPython's internal API to raise SystemExit in the target thread
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-        ctypes.c_ulong(thread_id), ctypes.py_object(SystemExit)
-    )
-
-    if res == 0:
-        print("Error: Invalid thread ID.")
-    elif res > 1:
-        # If it affected more than one thread (which shouldn't happen), revert it
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(thread_id), None)
-        print("Error: Failed to safely abort thread cleanly, reverted.")
 
 
 class SceneType(Enum):
@@ -73,8 +46,8 @@ class SceneConfig:
         )
 
 
-class Overlay(ABC):
-    """Abstract base class for an overlay modifying light values."""
+class Layer(ABC):
+    """Layer which makes up a scene. Is called every frame and modifies the light config. Can be disabled to skip processing."""
 
     def __init__(self, disabled: bool = False):
         super().__init__()
@@ -85,40 +58,23 @@ class Overlay(ABC):
         pass
 
 
-class Scene(ABC):
+class Scene:
     """
-    Abstract base class for a scene.
-    To make a new scene, subclass this and implement the run() method.
-    Construct the scene and call start() to start.
+    A Scene consiist of a set of layers and a configuration. It can be run in different modes, such as polling or audio playback.
+    The scene can be started and will call the provided callback with the current light configuration at each frame.
     """
 
-    def __init__(self, config: SceneConfig, overlays: list[Overlay] | None = None):
+    def __init__(
+        self,
+        config: SceneConfig,
+        background: LightConfig | None = None,
+        layers: list[Layer] | None = None,
+    ):
         self.config = config
-
-        self.context: FrameContext = None
-        """
-        Stores the last context with which the scene was rendered.
-        Will be None untill first call.
-        """
-
-        self.overlays = overlays or []
-
-        self.lights = LightConfig()
-        """
-        The LightConfig object storing the config used by the run function.
-        """
-
-    def on_start(self):
-        """
-        Runs when the scene is active.
-        """
-        return
-
-    def on_frame(self, context: FrameContext):
-        """
-        Runs when the scene is active.
-        """
-        return context
+        """Just if external scripts wanna know how its going. Shouldn't be used internally."""
+        self.background = background or LightConfig()
+        self.layers = layers or []
+        self.start_time = None
 
     def _start_poll_dispatcher(self, callback: Callable[[LightConfig], None]):
         dp_stop_event = threading.Event()
@@ -160,47 +116,32 @@ class Scene(ABC):
             return audio.bind(render)
 
     def start_dispatcher(self, callback: Callable[[LightConfig], None]):
+        """Starts the scene and begins dispatching light configurations to the provided callback."""
+        self.start_time = time.monotonic()
         if self.config.type == SceneType.POLL:
             return self._start_poll_dispatcher(callback)
         elif self.config.type in [SceneType.MIC, SceneType.PLAYBACK]:
             self._start_audio_dispatcher(callback)
 
+    def pre_render(self, context: FrameContext) -> FrameContext:
+        """Function to be called before rendering the scene. Can be overridden to modify: the context, the layers, or the background. Returns the context to be used for rendering."""
+        return context
+
     def _render(self, context: FrameContext) -> LightConfig:
         """Renders the current light values without starting any threads."""
-        self.context = context
+        self.context = self.pre_render(context)
+
+        t = time.monotonic() - self.start_time if self.start_time is not None else None
+        aud = context.audio_data.copy() if context.audio_data is not None else None
         current_context = FrameContext(
-            self.lights.copy(),
-            context.audio_data.copy() if context.audio_data is not None else None,
-            context.timestamp,
-            context.sampling_rate,
+            lights=self.background.copy(),
+            time=t,
+            audio_data=aud,
+            playback_timestamp=context.timestamp,
+            sampling_rate=context.sampling_rate,
         )
-        current_context = self.on_frame(current_context)
-        for overlay in self.overlays:
+        for overlay in self.layers:
             if not overlay.disabled:
                 current_context = overlay.apply(current_context)
 
         return current_context.lights
-
-    def start(self):
-        """Starts the user's run function on another thread."""
-
-        def run_user_script():
-            try:
-                self.on_start()
-                while True:
-                    time.sleep(1)
-            except SystemExit:
-                # print("Background scene was forcibly terminated.")
-                raise
-            finally:
-                self.stop()
-
-        self._script_thread = threading.Thread(target=run_user_script, daemon=True)
-        self._script_thread.start()
-
-    def stop(self):
-        """Kills the script."""
-
-        if self._script_thread and self._script_thread.is_alive():
-            _force_kill_thread(self._script_thread)
-        print("Scene stopped.")

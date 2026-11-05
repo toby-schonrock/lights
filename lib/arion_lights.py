@@ -379,6 +379,7 @@ class LightConfig:
         self.moving_heads = _moving_heads()
 
     def copy(self) -> "LightConfig":
+        """Creates a copy of the light config. Faster than deepcopy"""
         new = LightConfig()
         for newp, selfp in zip(new.panels, self.panels):
             newp.setLight(selfp.r, selfp.g, selfp.b)
