@@ -81,7 +81,7 @@ class Panel:
         b = DmxByte()
 
     def __init__(
-        self, name: str, channel: int, position: tuple[float, float], is_vertical: bool
+        self, name: str, channel: int, position: tuple[float, float, float], is_vertical: bool
     ):
         if not (1 <= channel <= 509):
             raise ValueError("DMX starting channel must be between 1 and 512.")
@@ -185,7 +185,7 @@ class MovingHead:
         tilt = DmxByte()
         speed = DmxByte()
 
-    def __init__(self, channel: int):
+    def __init__(self, channel: int, position: tuple[float, float, float]):
         if not (1 <= channel <= 503):
             raise ValueError("DMX starting channel must be between 1 and 512.")
 
@@ -204,6 +204,7 @@ class MovingHead:
             self.speed = 0
         
         self.channel = channel
+        self.position = position
         self.reset()
 
     def reset(self):
@@ -250,30 +251,35 @@ class MovingHead:
         # speed is inverted
         dmx_data[self.channel + 6] = 255 - self.speed
 
+WALL_TO_WALL = 3.9
+CENTER_BETWEEN_WALLS = 0 # in the coord system
+LEFT_WALL_X = -1.95
+RIGHT_WALL_X = 1.95
 
 class _panels:
     def __init__(self):
         # left side
-        self.a = Panel("a", 129, (0.34, 2.38), True)
-        self.b = Panel("b", 168, (1.25, 2.51), True)
-        self.c = Panel("c", 135, (2.20, 2.81), False)
-        self.d = Panel("d", 165, (3.30, 2.61), True)
-        self.e = Panel("e", 141, (2.08, 1.94), False)
-        self.f = Panel("f", 144, (3.15, 1.73), False)
-        self.g = Panel("g", 147, (1.06, 1.15), False)
-        self.h = Panel("h", 159, (2.11, 0.85), True)
-        self.i = Panel("i", 150, (3.01, 0.85), False)
-        self.m = Panel("m", 156, (3.23, 2.81), False)
-        self.n = Panel("n", 162, (2.31, 2.46), True)
-        self.o = Panel("o", 180, (1.16, 2.81), False)
-        self.p = Panel("p", 153, (0.23, 2.59), True)
-        self.q = Panel("q", 132, (3.12, 1.91), False)
-        self.r = Panel("r", 171, (1.31, 1.91), False)
-        self.s = Panel("s", 174, (0.13, 1.73), False)
-        self.t = Panel("t", 177, (3.23, 1.05), False)
-        self.u = Panel("u", 138, (2.32, 1.18), True)
-        self.v = Panel("v", 183, (1.14, 1.06), False)
+        self.a = Panel("a", 129, (LEFT_WALL_X, 0.90, 2.90), True)
+        self.b = Panel("b", 168, (LEFT_WALL_X, 1.76, 2.86), True)
+        self.c = Panel("c", 135, (LEFT_WALL_X, 2.70, 2.96), False)
+        self.d = Panel("d", 165, (LEFT_WALL_X, 3.62, 2.95), True)
+        self.e = Panel("e", 141, (LEFT_WALL_X, 2.60, 2.15), False)
+        self.f = Panel("f", 144, (LEFT_WALL_X, 3.59, 2.14), False)
+        self.g = Panel("g", 147, (LEFT_WALL_X, 1.63, 1.59), True)
+        self.h = Panel("h", 159, (LEFT_WALL_X, 2.43, 1.38), False)
+        self.i = Panel("i", 150, (LEFT_WALL_X, 3.47, 1.38), False)
+
         # right side
+        self.m = Panel("m", 156, (RIGHT_WALL_X, 3.54, 3.00), False)
+        self.n = Panel("n", 162, (RIGHT_WALL_X, 2.68, 2.98), True)
+        self.o = Panel("o", 180, (RIGHT_WALL_X, 1.80, 3.05), False)
+        self.p = Panel("p", 153, (RIGHT_WALL_X, 0.90, 3.00), True)
+        self.q = Panel("q", 132, (RIGHT_WALL_X, 3.42, 2.28), False)
+        self.r = Panel("r", 171, (RIGHT_WALL_X, 1.96, 2.29), False)
+        self.s = Panel("s", 174, (RIGHT_WALL_X, 0.70, 2.14), False)
+        self.t = Panel("t", 177, (RIGHT_WALL_X, 3.56, 1.49), False)
+        self.u = Panel("u", 138, (RIGHT_WALL_X, 2.67, 1.55), True)
+        self.v = Panel("v", 183, (RIGHT_WALL_X, 1.78, 1.54), False)
 
         self._ordered = [
             self.a,
@@ -333,19 +339,19 @@ class _overheads:
         for o in self._ordered:
             o.reset()
 
-
+MOVING_HEADS_Z = 2.5
 class _moving_heads:
     def __init__(self):
-        self.far_right = MovingHead(401)
-        self.mid_right = MovingHead(415)
-        self.close_right = MovingHead(429)
-        self.close_left = MovingHead(443)
-        self.mid_left = MovingHead(457)
-        self.far_left = MovingHead(471)
+        self.far_right = MovingHead(401, (RIGHT_WALL_X - 0.63, 0, MOVING_HEADS_Z))
+        # self.mid_right = MovingHead(415) # currently broken so not used
+        self.close_right = MovingHead(429, (RIGHT_WALL_X - 1.75, 0, MOVING_HEADS_Z))
+        self.close_left = MovingHead(443, (LEFT_WALL_X + 1.34, 0, MOVING_HEADS_Z))
+        self.mid_left = MovingHead(457, (LEFT_WALL_X + 0.78, 0, MOVING_HEADS_Z))
+        self.far_left = MovingHead(471, (LEFT_WALL_X + 0.23, 0, MOVING_HEADS_Z))
 
         self._ordered = [
             self.far_right,
-            self.mid_right,
+            # self.mid_right,
             self.close_right,
             self.close_left,
             self.mid_left,

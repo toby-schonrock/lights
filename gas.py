@@ -94,16 +94,16 @@ class Section:
 gas_background = LightConfig()
 for panel in gas_background.panels:
     if panel.name >= "m":
-        if panel.position[1] < 1.2:
+        if panel.position[2] < 1.7:
             panel.setLight(255, 50, 255)
-        elif panel.position[1] < 2:
+        elif panel.position[2] < 2.5:
             panel.setLight(255, 0, 100)
         else:
             panel.setLight(255, 0, 0)
     else:
-        if panel.position[1] < 1.2:
+        if panel.position[2] < 1.7:
             panel.setLight(100, 0, 255)
-        elif panel.position[1] < 2:
+        elif panel.position[2] < 2.5:
             panel.setLight(50, 0, 255)
         else:
             panel.setLight(0, 0, 255)

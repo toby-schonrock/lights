@@ -12,9 +12,9 @@ def arion_panels() -> LightConfig:
     # example background with arion lights
     lights = LightConfig()
     for panel in lights.panels:
-        if panel.position[1] < 1.2:
+        if panel.position[2] < 1.7:
             panel.setLight(0, 255, 0)
-        elif panel.position[1] < 2:
+        elif panel.position[2] < 2.5:
             panel.setLight(255, 255, 255)
         else:
             panel.setLight(0, 0, 255)
@@ -32,9 +32,9 @@ class RainbowPanels(Layer):
     def apply(self, context: FrameContext) -> FrameContext:
         lights = context.lights
         for panel in lights.panels:
-            r = (math.sin((context.time + panel.position[0] * 0.5) * self.speed) + 1) / 2
-            g = (math.sin((context.time + math.pi * 2/3 + panel.position[0] * 0.5) * self.speed) + 1) / 2
-            b = (math.sin((context.time + math.pi * 4/3 + panel.position[0] * 0.5) * self.speed) + 1) / 2
+            r = (math.sin((context.time + panel.position[1] * 0.5) * self.speed) + 1) / 2
+            g = (math.sin((context.time + math.pi * 2/3 + panel.position[1] * 0.5) * self.speed) + 1) / 2
+            b = (math.sin((context.time + math.pi * 4/3 + panel.position[1] * 0.5) * self.speed) + 1) / 2
             panel.setLight(r * 255, g * 255, b * 255)
         for overhead in lights.overheads:
             r = (math.sin((context.time) * self.speed) + 1) / 2
@@ -183,8 +183,8 @@ class PanelWave(Layer):
 
         mult_diff = self.max_mult - self.min_mult
         for panel in context.lights.panels:
-            x = panel.position[0] * math.cos(math.radians(self.angle))
-            y = panel.position[1] * math.sin(math.radians(self.angle))
+            x = panel.position[1] * math.cos(math.radians(self.angle))
+            y = panel.position[2] * math.sin(math.radians(self.angle))
             func = 0.5 * (1 + math.sin(((x + y) / self.width) + now * self.freq))
             mult = self.min_mult + mult_diff * func
             panel.r *= mult
@@ -222,7 +222,7 @@ class WaveMovingheads(Layer):
         return context
 
 
-VIRTUAL = False
+VIRTUAL = True
 if __name__ == "__main__":
     if VIRTUAL:
         from lib.virtualrig import VirtualRig
