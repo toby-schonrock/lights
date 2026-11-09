@@ -1,13 +1,13 @@
 import mido
 
-from examples import DimmerOverlay, RainbowsPanel
+from examples import DimmerOverlay, RainbowPanels
 from lib.artnetcontroller import ArtNetController
 from lib.scenes import Scene
 
 controller = ArtNetController("192.168.1.169")
 
 dimmer = DimmerOverlay()
-scene = Scene(RainbowsPanel(), [dimmer], lambda lights: controller.send_packet(lights.get_channel_values()))
+scene = Scene(RainbowPanels(), [dimmer], lambda lights: controller.send_packet(lights.get_channel_values()))
 scene.on_start()
 # scene = Scene(RainbowsPanel(), [dimmer], lambda lights: None)
 

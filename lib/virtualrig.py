@@ -43,15 +43,14 @@ class VirtualRig:
         for panel in self.lights.panels:
             name = panel.name
             is_vertical = panel.is_vertical
-            wx, wy = panel.position
+            _, wx, wy, = panel.position
 
-            screen_x, screen_y = self._world_to_screen(wx, wy, is_vertical, name)
-            sw, sh = self._get_dimensions_px(is_vertical)
+            rect = self._make_rect(wx, wy, is_vertical, name)
 
             self.panel_cache[name] = {
-                "rect": pygame.Rect(screen_x, screen_y, sw, sh),
+                "rect": rect,
                 "text_surface": self.font.render(name.upper(), True, (255, 255, 255)),
-                "text_pos": (screen_x + 6, screen_y + 6),
+                "text_pos": (rect.topleft[0] + 6, rect.topleft[1] + 6),
             }
 
     def _is_right_wall(self, name: str) -> bool:
@@ -62,20 +61,21 @@ class VirtualRig:
         h_m = self.panel_h_m if is_vertical else self.panel_w_m
         return int(w_m * self.scale), int(h_m * self.scale)
 
-    def _world_to_screen(self, wx, wy, is_vertical, name):
+    def _make_rect(self, wx, wy, is_vertical, name):
         is_right = self._is_right_wall(name)
         w_px, h_px = self._get_dimensions_px(is_vertical)
 
         if is_right:
             # Flipped X axis: 0,0 is bottom-right, positive wx extends leftwards
-            sx = self.width - (wx * self.scale) - w_px
+            sx = self.width - (wx * self.scale)
         else:
             # Standard X axis: 0,0 is bottom-left, positive wx extends rightwards
             sx = wx * self.scale
 
         # World Y goes UP, Pygame screen Y goes down
-        sy = self.height - ((wy - self.floor_height) * self.scale) - h_px
-        return int(sx), int(sy)
+        sy = self.height - ((wy - self.floor_height) * self.scale)
+
+        return pygame.Rect(sx - (w_px * 0.5), sy - (h_px * 0.5), w_px, h_px)
 
     def update_display(self, lights: LightConfig):
         for event in pygame.event.get():

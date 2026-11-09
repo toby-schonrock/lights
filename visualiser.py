@@ -1,15 +1,9 @@
-import argparse
-import itertools
 from collections.abc import Callable
 
 import numpy as np
 
-from examples import ArionScene
-from lib import audio
 from lib.arion_lights import LightConfig, Panel
-from lib.artnetcontroller import ArtNetController
-from lib.scenes import FrameContext, Overlay, SceneConfig
-from lib.virtualrig import VirtualRig
+from lib.scenes import FrameContext, Layer
 
 group1names = ["g", "h", "i", "t", "u", "v"]
 group2names = ["e", "f", "q", "r", "s"]
@@ -29,7 +23,7 @@ class Group:
         self.panel_names = panels
 
 
-class VisualiserDimmerOverlay(Overlay):
+class VisualiserDimmerOverlay(Layer):
     def __init__(self):
         super().__init__()
         self.groups = [
@@ -108,16 +102,23 @@ class VisualiserDimmerOverlay(Overlay):
 
 # if you run this file directly you get an example
 if __name__ == "__main__": 
-    controller = ArtNetController("192.168.1.169")
+    import argparse
+    import itertools
 
+    from examples import arion_panels
     from lib import audio
+    from lib.artnetcontroller import ArtNetController
+    from lib.scenes import Scene, SceneConfig
+    from lib.virtualrig import VirtualRig
+
+    # controller = ArtNetController("192.168.1.169")
 
     audio.select_device(auto=True)
 
-    scene = ArionScene(SceneConfig.mic(), [VisualiserDimmerOverlay()])
-    scene.on_start()
-    # rig = VirtualRig()
-    scene.start_dispatcher(lambda lights: controller.send_packet(lights.get_channel_values()))
+    scene = Scene(SceneConfig.mic(), background=arion_panels(), layers=[VisualiserDimmerOverlay()])
+    rig = VirtualRig()
+    # scene.start_dispatcher(lambda lights: controller.send_packet(lights.get_channel_values()))
+    scene.start_dispatcher(rig.callback)
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -135,7 +136,7 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
         from matplotlib import animation
 
-        overlay = scene.overlays[0]
+        overlay = scene.layers[0]
 
         def live_plot():
             # Set up the figure and axis
@@ -212,6 +213,6 @@ if __name__ == "__main__":
 
         live_plot()
 
-    # rig.run()
+    rig.run()
 
-    input("Press enter to close")
+    # input("Press enter to close")
