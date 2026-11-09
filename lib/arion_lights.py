@@ -209,7 +209,7 @@ class MovingHead:
     def reset(self):
         self.setLight(0, 0, 0)
         self.setDir(42, 15)
-        self.speed = 150
+        self.speed = 255
 
     def setLight(
         self, r: int, g: int, b: int, w: int = 0, brightness_strobe: LightState = None

@@ -4,11 +4,12 @@ import typing
 
 import numpy as np
 
-from lib.arion_lights import LightConfig, LightState
+from lib.arion_lights import LightConfig, LightMode, LightState
 from lib.scenes import FrameContext, Layer, Scene, SceneConfig
 
 
 def arion_panels() -> LightConfig:
+    # example background with arion lights
     lights = LightConfig()
     for panel in lights.panels:
         if panel.position[1] < 1.2:
@@ -24,22 +25,28 @@ def arion_panels() -> LightConfig:
 
 
 class RainbowPanels(Layer):
+    def __init__(self, speed = 1):
+        super().__init__()
+        self.speed = speed
+
     def apply(self, context: FrameContext) -> FrameContext:
         lights = context.lights
         for panel in lights.panels:
-            r = (math.sin(math.radians(context.time + panel.position[0] * 15)) + 1) / 2
-            g = (
-                math.sin(math.radians(context.time + 120 + panel.position[0] * 15)) + 1
-            ) / 2
-            b = (
-                math.sin(math.radians(context.time + 240 + panel.position[0] * 15)) + 1
-            ) / 2
+            r = (math.sin((context.time + panel.position[0] * 0.5) * self.speed) + 1) / 2
+            g = (math.sin((context.time + math.pi * 2/3 + panel.position[0] * 0.5) * self.speed) + 1) / 2
+            b = (math.sin((context.time + math.pi * 4/3 + panel.position[0] * 0.5) * self.speed) + 1) / 2
             panel.setLight(r * 255, g * 255, b * 255)
         for overhead in lights.overheads:
-            r = (math.sin(math.radians(context.time)) + 1) / 2
-            g = (math.sin(math.radians(context.time + 120)) + 1) / 2
-            b = (math.sin(math.radians(context.time + 240)) + 1) / 2
+            r = (math.sin((context.time) * self.speed) + 1) / 2
+            g = (math.sin((context.time + math.pi * 2/3) * self.speed) + 1) / 2
+            b = (math.sin((context.time + math.pi * 4/3) * self.speed) + 1) / 2
             overhead.setLight(r * 255, g * 255, b * 255, LightState.brightness(120))
+
+        for overhead in lights.moving_heads:
+            r = (math.sin((context.time) * self.speed) + 1) / 2
+            g = (math.sin((context.time + math.pi * 2/3) * self.speed) + 1) / 2
+            b = (math.sin((context.time + math.pi * 4/3) * self.speed) + 1) / 2
+            overhead.setLight(r * 255, g * 255, b * 255,0, LightState.brightness(25))
         return context
 
 
@@ -51,16 +58,28 @@ class DimmerOverlay(Layer):
     def apply(self, context: FrameContext) -> FrameContext:
         lights = context.lights
 
+        scale = self.brightness / 255.0
+
         for panel in lights.panels:
-            panel.r *= self.brightness / 255.0
-            panel.g *= self.brightness / 255.0
-            panel.b *= self.brightness / 255.0
+            panel.r *= scale
+            panel.g *= scale
+            panel.b *= scale
 
         for head in lights.overheads:
-            head.brightness_strobe = LightState.brightness(self.brightness)
+            if head.brightness_strobe.mode == LightMode.BRIGHTNESS:
+                head.brightness_strobe = LightState.brightness(
+                    head.brightness_strobe.value * scale
+                )
+            else:
+                head.brightness_strobe = LightState.brightness(255)
 
         for head in lights.moving_heads:
-            head.brightness_strobe = LightState.brightness(self.brightness)
+            if head.brightness_strobe.mode == LightMode.BRIGHTNESS:
+                head.brightness_strobe = LightState.brightness(
+                    head.brightness_strobe.value * scale
+                )
+            else:
+                head.brightness_strobe = LightState.brightness(255)
 
         return context
 
@@ -175,7 +194,35 @@ class PanelWave(Layer):
         return context
 
 
-VIRTUAL = True
+class WaveMovingheads(Layer):
+    def __init__(
+        self,
+        period: float,
+        color_overide: tuple[int, int, int, int, LightState] | None = None,
+    ):
+        super().__init__()
+        self.period = period
+        self.color_overide = color_overide
+        """Color override for the moving heads. If None, no affect."""
+
+    def apply(self, context: FrameContext) -> FrameContext:
+        lights = context.lights
+        f = 2 * math.pi / self.period
+        for i, head in enumerate(lights.moving_heads):
+            if self.color_overide is not None:
+                head.setLight(*self.color_overide)
+
+            head.pan = 255 / 1.5 * 0.25  # face forward
+
+            tilt = (1 + math.sin((context.time + i * 0.4) * f)) / 2 * 255
+            # value between 0 and 1
+
+            head.tilt = tilt
+
+        return context
+
+
+VIRTUAL = False
 if __name__ == "__main__":
     if VIRTUAL:
         from lib.virtualrig import VirtualRig
@@ -190,16 +237,23 @@ if __name__ == "__main__":
 
     overlay = DimmerOverlay()
     overlay.brightness = 230
-    # scene = Scene(
-    #     SceneConfig.poll(), layers=[RainbowPanels(), PanelWave(3, -45, 0.8, 0.6), overlay]
-    # )
-    # scene = Scene(SceneConfig.poll(), layers=[RainbowPanels(), PanelCircle()])
-    # scene = Scene(SceneConfig.mic(), background=arion_panels(), layers=[VolumeDimmer()])
     scene = Scene(
-        SceneConfig.playback("audio_files/click_80bpm.mp3"),
-        arion_panels(),
-        [VolumeDimmer()],
+        SceneConfig.poll(),
+        layers=[
+            RainbowPanels(speed=1),
+            WaveMovingheads(
+                period=6,
+            ),
+            overlay,
+        ],
     )
+    # scene = Scene(SceneConfig.poll(), layers=[RainbowPanels(), PanelCircle()])
+    # scene = Scene(SceneConfig.mic(), background=arion_panels(), layers=[])
+    # scene = Scene(
+    #     SceneConfig.playback("audio_files/click_80bpm.mp3"),
+    #     arion_panels(),
+    #     [VolumeDimmer()],
+    # )
 
     scene.start_dispatcher(callback)
 
